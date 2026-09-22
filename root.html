@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MediSync - Root Configuration</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="#" class="logo"><i class="fa-solid fa-heart-pulse logo-icon"></i>Medi<span>Sync</span></a>
+        <div class="user-profile">
+            <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100" class="avatar avatar-sm">
+            <div class="user-info">
+                <span class="user-name">{{ user.name }}</span>
+                <span class="user-role" style="color: #ef4444; font-weight: 700;">ROOT SUPER ADMIN</span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="logout()" style="margin-left: 1rem;"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1 style="margin-bottom: 2rem; display: flex; align-items: center; gap: 0.8rem;">
+            <i class="fa-solid fa-shield-halved" style="color: #ef4444;"></i> Root System Configuration
+        </h1>
+
+        <div class="grid-2">
+            <!-- Create User Form -->
+            <div class="card">
+                <h3 class="card-title"><i class="fa-solid fa-user-plus" style="color: var(--primary);"></i> Create Staff / Admin Account</h3>
+                <input type="text" id="root-name" class="form-input" placeholder="Full Name" style="width: 100%; margin-bottom: 0.8rem;">
+                <input type="text" id="root-user" class="form-input" placeholder="Username" style="width: 100%; margin-bottom: 0.8rem;">
+                <input type="password" id="root-pass" class="form-input" placeholder="Password" style="width: 100%; margin-bottom: 0.8rem;">
+                <select id="root-role" class="form-input" style="width: 100%; margin-bottom: 1rem;">
+                    <option value="doctor">Doctor (医师)</option>
+                    <option value="staff">Staff (前台/护士)</option>
+                    <option value="admin">Admin (系统管理员)</option>
+                </select>
+                <button class="btn btn-primary" onclick="createStaffUser()" style="width: 100%;">
+                    <i class="fa-solid fa-check"></i> Create Account
+                </button>
+            </div>
+
+            <!-- Users List -->
+            <div class="card">
+                <h3 class="card-title"><i class="fa-solid fa-users" style="color: var(--accent-purple);"></i> System Users</h3>
+                <table id="usersTable">
+                    <thead>
+                        <tr><th>Name</th><th>Username</th><th>Role</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Loading users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入外部 CSS/JS -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    <!-- 🌟 内联脚本：彻底解决 createStaffUser is not defined 报错 -->
+    <script>
+        // 页面加载时自动获取用户列表
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRootUsers();
+        });
+
+        // 创建用户函数
+        async function createStaffUser() {
+            const name = document.getElementById('root-name').value.trim();
+            const username = document.getElementById('root-user').value.trim();
+            const password = document.getElementById('root-pass').value.trim();
+            const role = document.getElementById('root-role').value;
+
+            if (!name || !username || !password) {
+                alert("Please fill in all fields (Name, Username, Password).");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/root/create_user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, username, password, role })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert(data.message);
+                    document.getElementById('root-name').value = '';
+                    document.getElementById('root-user').value = '';
+                    document.getElementById('root-pass').value = '';
+                    loadRootUsers(); // 刷新列表
+                } else {
+                    alert("Failed: " + (data.message || "Unknown error"));
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Network error. Please check if the server is running.");
+            }
+        }
+
+        // 加载用户列表函数
+        async function loadRootUsers() {
+            try {
+                const res = await fetch('/api/root/users');
+                const users = await res.json();
+                const tbody = document.querySelector('#usersTable tbody');
+                if (!tbody) return;
+
+                tbody.innerHTML = '';
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--text-muted);">No users found.</td></tr>';
+                    return;
+                }
+
+                users.forEach(u => {
+                    const roleColor = u.role === 'admin' ? 'badge-purple' : (u.role === 'staff' ? 'badge-blue' : 'badge-green');
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${u.name}</td>
+                            <td>${u.username}</td>
+                            <td><span class="badge ${roleColor}">${u.role}</span></td>
+                        </tr>
+                    `;
+                });
+            } catch (error) {
+                console.error("Failed to load users:", error);
+            }
+        }
+
+        // 登出函数
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/patient/auth';
+        }
+    </script>
+</body>
+</html>
