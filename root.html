@@ -32,9 +32,9 @@
                 <input type="text" id="root-user" class="form-input" placeholder="Username" style="width: 100%; margin-bottom: 0.8rem;">
                 <input type="password" id="root-pass" class="form-input" placeholder="Password" style="width: 100%; margin-bottom: 0.8rem;">
                 <select id="root-role" class="form-input" style="width: 100%; margin-bottom: 1rem;">
-                    <option value="doctor">Doctor (医师)</option>
-                    <option value="staff">Staff (前台/护士)</option>
-                    <option value="admin">Admin (系统管理员)</option>
+                    <option value="doctor">Doctor</option>
+                    <option value="staff">Staff</option>
+                    <option value="admin">Admin</option>
                 </select>
                 <button class="btn btn-primary" onclick="createStaffUser()" style="width: 100%;">
                     <i class="fa-solid fa-check"></i> Create Account
@@ -56,17 +56,15 @@
         </div>
     </div>
 
-    <!-- 引入外部 CSS/JS -->
+    <!-- Import External CSS/JS -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
-
-    <!-- 🌟 内联脚本：彻底解决 createStaffUser is not defined 报错 -->
     <script>
-        // 页面加载时自动获取用户列表
+        // Page Loaded Auto Load User List
         document.addEventListener('DOMContentLoaded', () => {
             loadRootUsers();
         });
 
-        // 创建用户函数
+        // Create User Definition
         async function createStaffUser() {
             const name = document.getElementById('root-name').value.trim();
             const username = document.getElementById('root-user').value.trim();
@@ -91,7 +89,7 @@
                     document.getElementById('root-name').value = '';
                     document.getElementById('root-user').value = '';
                     document.getElementById('root-pass').value = '';
-                    loadRootUsers(); // 刷新列表
+                    loadRootUsers(); // Refresh List
                 } else {
                     alert("Failed: " + (data.message || "Unknown error"));
                 }
@@ -101,7 +99,7 @@
             }
         }
 
-        // 加载用户列表函数
+        // Load User List
         async function loadRootUsers() {
             try {
                 const res = await fetch('/api/root/users');
@@ -130,7 +128,7 @@
             }
         }
 
-        // 登出函数
+        // Logout Definition
         async function logout() {
             await fetch('/api/auth/logout', { method: 'POST' });
             window.location.href = '/patient/auth';
