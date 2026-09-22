@@ -31,7 +31,6 @@ body {
 }
 
 /* ==================== KEYFRAME ANIMATIONS ==================== */
-
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(18px) scale(0.99); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -68,7 +67,6 @@ body {
 }
 
 /* ==================== AVATARS & USER PROFILES ==================== */
-
 .avatar {
   border-radius: 50%;
   object-fit: cover;
@@ -118,7 +116,6 @@ body {
 }
 
 /* ==================== UI COMPONENTS & HOVERS ==================== */
-
 .navbar {
   background: #ffffff;
   border-bottom: 1px solid var(--border-color);
