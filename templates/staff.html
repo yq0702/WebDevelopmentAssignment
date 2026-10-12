@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>MediSync - Staff Dashboard</title>
+
+    <link rel="preconnect"
+          href="https://fonts.googleapis.com">
+
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='styles.css') }}">
+
+</head>
+
+
+<body class="staff-page">
+
+
+<!-- ================= NAVBAR ================= -->
+
+<nav class="navbar">
+
+    <a href="/staff/dashboard"
+       class="logo">
+
+        <i class="fa-solid fa-heart-pulse logo-icon"></i>
+
+        Medi<span>Sync</span>
+
+    </a>
+
+
+    <div class="user-profile">
+
+        <div class="profile-icon">
+
+            <i class="fa-solid fa-user-nurse"></i>
+
+        </div>
+
+
+        <div class="user-info">
+
+            <span class="user-name">
+                {{ user.name }}
+            </span>
+
+            <span class="user-role">
+                Hospital Staff
+            </span>
+
+        </div>
+
+
+        <button
+                class="btn btn-outline btn-sm"
+                onclick="logoutUser()">
+
+            <i class="fa-solid fa-right-from-bracket"></i>
+
+            Logout
+
+        </button>
+
+    </div>
+
+</nav>
+
+
+
+<main class="container">
+
+
+    <!-- ================= HERO ================= -->
+
+    <section class="dashboard-hero staff-dashboard-hero">
+
+        <div>
+
+            <span class="hero-label">
+
+                <i class="fa-solid fa-hospital-user"></i>
+
+                FRONT DESK
+
+            </span>
+
+
+            <h1>
+                Staff Dashboard
+            </h1>
+
+
+            <p>
+                Manage patient arrivals, appointment queues
+                and hospital check-ins.
+            </p>
+
+
+            <span id="staffCurrentDate"
+                  class="dashboard-date">
+            </span>
+
+        </div>
+
+
+        <button
+                class="hero-button"
+                onclick="refreshStaffDashboard()">
+
+            <i class="fa-solid fa-rotate-right"></i>
+
+            Refresh Queue
+
+        </button>
+
+    </section>
+
+
+
+    <!-- ================= STATISTICS ================= -->
+
+    <section class="dashboard-metrics">
+
+
+        <div class="metric-card metric-blue">
+
+            <div class="metric-icon">
+
+                <i class="fa-solid fa-clock"></i>
+
+            </div>
+
+            <div>
+
+                <span>
+                    Waiting Check-In
+                </span>
+
+                <strong id="waitingCount">
+                    0
+                </strong>
+
+                <small>
+                    Booked patients
+                </small>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card metric-purple">
+
+            <div class="metric-icon">
+
+                <i class="fa-solid fa-filter"></i>
+
+            </div>
+
+            <div>
+
+                <span>
+                    Visible Results
+                </span>
+
+                <strong id="visibleCount">
+                    0
+                </strong>
+
+                <small>
+                    Current filtered queue
+                </small>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card metric-green">
+
+            <div class="metric-icon">
+
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+
+            </div>
+
+            <div>
+
+                <span>
+                    AI Consultations
+                </span>
+
+                <strong id="staffAiCount">
+                    0
+                </strong>
+
+                <small>
+                    With AI summary
+                </small>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card metric-amber">
+
+            <div class="metric-icon">
+
+                <i class="fa-solid fa-circle-check"></i>
+
+            </div>
+
+            <div>
+
+                <span>
+                    Staff Status
+                </span>
+
+                <strong class="status-text">
+                    Active
+                </strong>
+
+                <small>
+                    Front desk online
+                </small>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+
+    <!-- ================= PATIENT QUEUE ================= -->
+
+    <section class="card dashboard-panel">
+
+
+        <div class="panel-header">
+
+            <div>
+
+                <div class="card-title">
+
+                    <i class="fa-solid fa-users-line"></i>
+
+                    Patient Appointment Queue
+
+                </div>
+
+
+                <p>
+                    View booked appointments and check patients
+                    in when they arrive.
+                </p>
+
+            </div>
+
+
+            <span class="live-status">
+
+                <span class="live-dot"></span>
+
+                Live Queue
+
+            </span>
+
+        </div>
+
+
+
+        <!-- TOOLBAR -->
+
+        <div class="dashboard-toolbar">
+
+
+            <div class="search-box">
+
+                <i class="fa-solid fa-magnifying-glass"></i>
+
+                <input
+                        type="search"
+                        id="staffSearch"
+                        placeholder="Search patient or patient ID...">
+
+            </div>
+
+
+
+            <select
+                    id="staffAiFilter"
+                    class="form-input toolbar-select">
+
+                <option value="all">
+                    All Patients
+                </option>
+
+                <option value="ai">
+                    With AI Summary
+                </option>
+
+                <option value="no-ai">
+                    Without AI Summary
+                </option>
+
+            </select>
+
+
+
+            <select
+                    id="staffSort"
+                    class="form-input toolbar-select">
+
+                <option value="default">
+                    Default Order
+                </option>
+
+                <option value="name">
+                    Patient Name A-Z
+                </option>
+
+                <option value="date">
+                    Appointment Date
+                </option>
+
+            </select>
+
+
+
+            <button
+                    class="btn btn-outline"
+                    onclick="exportStaffCSV()">
+
+                <i class="fa-solid fa-file-csv"></i>
+
+                Export
+
+            </button>
+
+
+
+            <button
+                    class="btn btn-outline"
+                    onclick="printStaffQueue()">
+
+                <i class="fa-solid fa-print"></i>
+
+                Print
+
+            </button>
+
+        </div>
+
+
+
+        <div id="staffMessage"
+             class="status-message">
+        </div>
+
+
+
+        <div class="table-wrapper modern-table-wrapper">
+
+
+            <table class="modern-dashboard-table">
+
+
+                <thead>
+
+                <tr>
+
+                    <th>
+                        Patient
+                    </th>
+
+                    <th>
+                        Appointment
+                    </th>
+
+                    <th>
+                        AI Pre-Consultation
+                    </th>
+
+                    <th>
+                        Status
+                    </th>
+
+                    <th>
+                        Action
+                    </th>
+
+                </tr>
+
+                </thead>
+
+
+
+                <tbody id="staffQueueBody">
+
+                <tr>
+
+                    <td colspan="5"
+                        class="loading-row">
+
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+
+                        Loading appointments...
+
+                    </td>
+
+                </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </section>
+
+</main>
+
+<!-- ================= PATIENT DETAIL MODAL ================= -->
+
+<div id="staffPatientModal"
+     class="dashboard-modal">
+
+    <div class="dashboard-modal-card">
+
+
+        <div class="modal-header">
+
+
+            <div>
+
+                <span class="modal-label">
+                    Patient Appointment
+                </span>
+
+                <h2 id="staffModalName">
+                    Patient
+                </h2>
+
+            </div>
+
+
+            <button
+                    class="modal-close-button"
+                    onclick="closeStaffModal()">
+
+                <i class="fa-solid fa-xmark"></i>
+
+            </button>
+
+        </div>
+
+
+
+        <div class="modal-detail-grid">
+
+
+            <div>
+
+                <span>
+                    Patient ID
+                </span>
+
+                <strong id="staffModalPatientId">
+                    -
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span>
+                    Date
+                </span>
+
+                <strong id="staffModalDate">
+                    -
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span>
+                    Time
+                </span>
+
+                <strong id="staffModalTime">
+                    -
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                <span>
+                    Status
+                </span>
+
+                <strong>
+                    Booked
+                </strong>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="modal-section">
+
+            <span class="modal-section-title">
+
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+
+                AI Pre-Consultation Summary
+
+            </span>
+
+
+            <div id="staffModalAi"
+                 class="modal-ai-box">
+
+                No AI consultation provided.
+
+            </div>
+
+        </div>
+
+
+
+        <div class="modal-actions">
+
+
+            <button
+                    class="btn btn-outline"
+                    onclick="closeStaffModal()">
+
+                Close
+
+            </button>
+
+
+            <button
+                    id="staffModalCheckInButton"
+                    class="btn btn-primary">
+
+                <i class="fa-solid fa-user-check"></i>
+
+                Check In Patient
+
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="{{ url_for('static', filename='staff.js') }}"></script>
+
+</body>
+
+</html>
