@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediSync - Patient Portal</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        .calendar-day {
+            padding: 0.6rem 0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-main);
+            text-align: center;
+        }
+        .calendar-day.available:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+            transform: scale(1.05);
+        }
+        .calendar-day.selected {
+            background: var(--primary);
+            color: #fff !important;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
+            transform: scale(1.05);
+        }
+        .calendar-day.disabled {
+            color: #cbd5e1;
+            cursor: not-allowed;
+            background: transparent;
+        }
+        .calendar-day.no-slot {
+            color: var(--text-muted);
+            cursor: pointer;
+            background: transparent;
+            border: 1px dashed #cbd5e1;
+        }
+        .calendar-day.no-slot:hover {
+            background: #f1f5f9;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .calendar-day.today:not(.selected) {
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+        .calendar-header-day {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 0.5rem 0;
+        }
+
+        .date-picker-wrapper {
+            display: flex;
+            align-items: center;
+            background: var(--bg-body);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.2rem 0.6rem;
+            transition: all 0.2s;
+            gap: 2px;
+        }
+        .date-picker-wrapper:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+        .date-select {
+            appearance: none;
+            -webkit-appearance: none;
+            background: transparent;
+            border: none;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--secondary);
+            cursor: pointer;
+            padding: 0.2rem 0.2rem;
+            outline: none;
+            font-family: inherit;
+        }
+        .date-select option {
+            font-weight: 500;
+            color: var(--text-main);
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+    <!-- Aurora Background -->
+    <div class="bg-aurora"><span></span><span></span><span></span></div>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <a href="#" class="logo"><i class="fa-solid fa-heart-pulse logo-icon"></i> Medi<span>Sync</span></a>
+        <div class="role-switcher">
+            <button class="role-btn active" onclick="openDoctorsModal()">Find Doctor</button>
+            <button class="role-btn" onclick="openSettingsModal()">Settings</button>
+        </div>
+        <div class="user-profile">
+            <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100" class="avatar avatar-sm">
+            <div class="user-info">
+                <span class="user-name">{{ user.name }}</span>
+                <span class="user-role">Patient ID: #{{ user.patient_id }}</span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Welcome Header -->
+        <div class="card" style="background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%); border: none;">
+            <h2 style="font-size: 1.5rem; font-weight: 800; color: var(--secondary); margin-bottom: 0.5rem;">Welcome back, {{ user.name.split()[0] }}!</h2>
+            <p style="color: var(--text-muted);">Your health journey is our priority. Manage your appointments, consult with our AI triage, and stay on top of your wellness.</p>
+            <div style="display: flex; gap: 1.5rem; margin-top: 1.5rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 2rem; font-weight: 800; color: var(--primary);" id="statUpcoming">0</span>
+                    <span style="color: var(--text-muted); font-size: 0.9rem;">Upcoming</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 2rem; font-weight: 800; color: var(--accent-green);" id="statCompleted">0</span>
+                    <span style="color: var(--text-muted); font-size: 0.9rem;">Completed</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <!-- AI Triage Card -->
+            <div class="card ai-box">
+                <h3 class="card-title"><i class="fa-solid fa-robot ai-sparkle-icon"></i> AI Smart Triage Assistant</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Not sure which specialist to see? Let our AI analyze your symptoms.</p>
+                <textarea id="aiInput" class="form-input" rows="3" placeholder="Describe your symptoms here..." style="width: 100%; margin-bottom: 1rem;"></textarea>
+                <button class="btn btn-primary" onclick="runAiTriage()"><i class="fa-solid fa-wand-magic-sparkles"></i> Analyze</button>
+                <div id="aiResult" class="ai-result-card"></div>
+            </div>
+
+            <!-- 🌟 Reserve Slot Card (ADVANCE BOOKING + PRECISE PICKER) 🌟 -->
+            <div class="card">
+                <h3 class="card-title"><i class="fa-regular fa-calendar-check" style="color: var(--primary);"></i> Reserve Slot <span style="font-size: 0.75rem; background: var(--primary-light); color: var(--primary); padding: 2px 8px; border-radius: 50px; margin-left: 8px;">Advance up to 1 Year</span></h3>
+
+                <!-- Calendar UI Start -->
+                <div id="calendarContainer">
+                    <!-- Month Navigation & Precise Picker -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <button class="btn btn-outline btn-sm" onclick="changeCalendarMonth(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+
+                            <div class="date-picker-wrapper">
+                                <select id="monthPicker" onchange="onMonthYearChange()" class="date-select"></select>
+                                <select id="yearPicker" onchange="onMonthYearChange()" class="date-select"></select>
+                                <i class="fa-solid fa-calendar-days" style="color: var(--primary); margin-left: 4px; font-size: 0.9rem;"></i>
+                            </div>
+
+                            <button class="btn btn-outline btn-sm" onclick="changeCalendarMonth(1)"><i class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+
+                        <!-- Advance Booking Quick Jump -->
+                        <div style="display: flex; gap: 0.3rem; flex-wrap: wrap;">
+                            <button class="btn btn-outline btn-sm" onclick="jumpToFuture(3)" title="Jump 3 Months" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">+3M</button>
+                            <button class="btn btn-outline btn-sm" onclick="jumpToFuture(6)" title="Jump 6 Months" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">+6M</button>
+                            <button class="btn btn-outline btn-sm" onclick="jumpToFuture(9)" title="Jump 9 Months" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">+9M</button>
+                            <button class="btn btn-outline btn-sm" onclick="jumpToFuture(12)" title="Jump 1 Year" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: var(--primary-light); color: var(--primary); border-color: var(--primary); font-weight: 700;">+1Y</button>
+                        </div>
+                    </div>
+
+                    <!-- Weekdays Header -->
+                    <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <div class="calendar-header-day">Sun</div>
+                        <div class="calendar-header-day">Mon</div>
+                        <div class="calendar-header-day">Tue</div>
+                        <div class="calendar-header-day">Wed</div>
+                        <div class="calendar-header-day">Thu</div>
+                        <div class="calendar-header-day">Fri</div>
+                        <div class="calendar-header-day">Sat</div>
+                    </div>
+
+                    <!-- Days Grid -->
+                    <div id="calendarDays" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.5rem;">
+                        <!-- Days injected via JS -->
+                    </div>
+
+                    <!-- Time Slots Selection -->
+                    <div id="timeSlotsContainer" style="margin-top: 1.5rem; display: none;">
+                        <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.75rem;">
+                            Available Times for <span id="selectedDateText" style="color: var(--primary);">--</span>
+                        </h4>
+                        <div id="timeSlotsGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;">
+                            <!-- Time slots injected via JS -->
+                        </div>
+                    </div>
+                </div>
+                <!-- Calendar UI End -->
+
+                <!-- Footer Info & Confirm Button -->
+                <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
+                        <i class="fa-solid fa-bell" style="color: var(--accent-green);"></i> Automated reminders will be sent 24h before your visit.
+                    </p>
+                    <button id="confirmBookingBtn" class="btn btn-primary" disabled onclick="confirmCalendarBooking()" style="opacity: 0.5; cursor: not-allowed;">Confirm Booking</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Health Journey Table -->
+        <div class="card">
+            <h3 class="card-title"><i class="fa-solid fa-list-check" style="color: var(--primary);"></i> My Health Journey</h3>
+            <div style="overflow-x: auto;">
+                <table id="patientBookingTable">
+                    <thead>
+                        <tr>
+                            <th>Schedule & Specialist</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted);">No active bookings</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.85rem;">
+        <i class="fa-solid fa-lock"></i> Your data is encrypted and secure. MediSync © 2024
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.25rem; font-weight: 700;">Account Settings</h3>
+                <span class="modal-close" onclick="closeModal('settingsModal')">&times;</span>
+            </div>
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <img id="previewPic" src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100" class="avatar avatar-md">
+            </div>
+            <form onsubmit="saveProfile(event)">
+                <input type="hidden" id="setLoginMethod" value="username">
+                <div style="display: grid; gap: 1rem;">
+                    <input type="text" id="setName" class="form-input" placeholder="Full Name">
+                    <input type="email" id="setEmail" class="form-input" placeholder="Email Address">
+                    <input type="text" id="setPhone" class="form-input" placeholder="Phone Number">
+                    <input type="text" id="setPicUrl" class="form-input" placeholder="Profile Picture URL">
+                    <hr style="border: 0; border-top: 1px solid var(--border-color);">
+                    <input type="password" id="setOldPass" class="form-input" placeholder="Current Password">
+                    <input type="password" id="setNewPass" class="form-input" placeholder="New Password (Leave blank to keep current)">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('settingsModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Find Doctor Modal -->
+    <div id="doctorsModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.25rem; font-weight: 700;">Our Specialists</h3>
+                <span class="modal-close" onclick="closeModal('doctorsModal')">&times;</span>
+            </div>
+
+            <div id="doctorListView">
+                <div id="sectorButtons" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+                    <button class="btn btn-sm btn-primary">All</button>
+                    <button class="btn btn-sm btn-outline">General Practitioner</button>
+                    <button class="btn btn-sm btn-outline">Cardiology</button>
+                    <button class="btn btn-sm btn-outline">Dermatology</button>
+                </div>
+                <div id="doctorsGrid" class="grid-2" style="gap: 1rem;">
+                    <!-- Doctors injected here -->
+                </div>
+            </div>
+
+            <div id="slotBookingView" style="display: none;">
+                <button class="btn btn-outline btn-sm" onclick="backToDoctorList()" style="margin-bottom: 1rem;"><i class="fa-solid fa-arrow-left"></i> Back to Doctors</button>
+                <div style="background: var(--bg-body); padding: 1rem; border-radius: 12px; margin-bottom: 1rem;">
+                    <h4 id="selectedDoctorName" style="font-weight: 700; margin: 0;">Book with Dr. Smith</h4>
+                    <p id="selectedDoctorSpec" style="color: var(--primary); font-size: 0.9rem; margin: 0.2rem 0 0 0;">Cardiology</p>
+                </div>
+                <h4 style="font-weight: 700; margin-bottom: 1rem;">Available Time Slots</h4>
+                <div id="slotsGrid" class="grid-4" style="gap: 1rem;">
+                    <!-- Slots injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+
+    <script>
+        let calendarCurrentDate = new Date();
+        let calendarSelectedDate = null;
+        let calendarSelectedSlotId = null;
+        let allAvailableSlots = [];
+
+        async function initCalendar() {
+            let slots = await apiRequest('/api/patient/slots?advance=1y');
+            if (!slots || slots.error) {
+                slots = await apiRequest('/api/patient/slots');
+            }
+            if (slots) {
+                allAvailableSlots = slots;
+            }
+            renderCalendar();
+        }
+
+        function changeCalendarMonth(direction) {
+            calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + direction);
+            renderCalendar();
+        }
+
+        function jumpToFuture(months) {
+            calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + months);
+            renderCalendar();
+        }
+
+        function onMonthYearChange() {
+            const newMonth = parseInt(document.getElementById('monthPicker').value);
+            const newYear = parseInt(document.getElementById('yearPicker').value);
+
+            calendarCurrentDate.setFullYear(newYear);
+            calendarCurrentDate.setMonth(newMonth);
+
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const year = calendarCurrentDate.getFullYear();
+            const month = calendarCurrentDate.getMonth();
+
+            // 1. Month Picker
+            const monthPicker = document.getElementById('monthPicker');
+            if (monthPicker.options.length === 0) {
+                const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                monthNames.forEach((name, index) => {
+                    const opt = document.createElement('option');
+                    opt.value = index;
+                    opt.textContent = name;
+                    monthPicker.appendChild(opt);
+                });
+            }
+            monthPicker.value = month;
+
+            // 2. Year Picker
+            const yearPicker = document.getElementById('yearPicker');
+            const currentRealYear = new Date().getFullYear();
+            if (yearPicker.options.length === 0) {
+                for (let y = currentRealYear; y <= currentRealYear + 2; y++) {
+                    const opt = document.createElement('option');
+                    opt.value = y;
+                    opt.textContent = y;
+                    yearPicker.appendChild(opt);
+                }
+            }
+            yearPicker.value = year;
+
+            // 3. Render Calender
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            const todayMidnight = new Date();
+            todayMidnight.setHours(0, 0, 0, 0);
+
+            const calendarDays = document.getElementById('calendarDays');
+            calendarDays.innerHTML = '';
+
+            for (let i = 0; i < firstDay; i++) {
+                calendarDays.innerHTML += `<div></div>`;
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const slotsOnDate = allAvailableSlots.filter(s => s.date === dateStr);
+                const hasSlots = slotsOnDate.length > 0;
+                const isSelected = calendarSelectedDate === dateStr;
+                const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
+
+                const targetDate = new Date(year, month, day);
+                const isPast = targetDate < todayMidnight;
+
+                let classes = 'calendar-day';
+                if (isSelected) {
+                    classes += ' selected';
+                } else if (isPast) {
+                    classes += ' disabled';
+                } else if (hasSlots) {
+                    classes += ' available';
+                } else {
+                    classes += ' no-slot';
+                }
+
+                if (isToday && !isSelected) classes += ' today';
+
+                const onclick = !isPast ? `selectCalendarDate('${dateStr}')` : '';
+                calendarDays.innerHTML += `<div class="${classes}" onclick="${onclick}">${day}</div>`;
+            }
+        }
+
+        // Select Date
+        function selectCalendarDate(dateStr) {
+            calendarSelectedDate = dateStr;
+            calendarSelectedSlotId = null;
+            renderCalendar();
+
+            const dateObj = new Date(dateStr);
+            document.getElementById('selectedDateText').textContent = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+            const container = document.getElementById('timeSlotsContainer');
+            const grid = document.getElementById('timeSlotsGrid');
+            container.style.display = 'block';
+            grid.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Checking availability...</p>`;
+
+            setTimeout(() => {
+                const slotsOnDate = allAvailableSlots.filter(s => s.date === dateStr);
+                grid.innerHTML = '';
+
+                if (slotsOnDate.length === 0) {
+                    grid.innerHTML = `
+                        <div style="grid-column: 1/-1; text-align: center; padding: 1.5rem; background: #fef3c7; border-radius: 12px; border: 1px dashed #f59e0b;">
+                            <i class="fa-regular fa-calendar-xmark" style="font-size: 2rem; color: #f59e0b; margin-bottom: 0.5rem; display: block;"></i>
+                            <p style="color: #92400e; font-weight: 600; margin: 0;">No slots available on this day.</p>
+                            <p style="color: #b45309; font-size: 0.8rem; margin: 0.5rem 0 0 0;">Please select another date with a <strong>solid border</strong> or <strong>blue highlight</strong>.</p>
+                        </div>
+                    `;
+                    updateConfirmBtn();
+                } else {
+                    slotsOnDate.forEach(slot => {
+                        const docName = slot.doctor_info ? slot.doctor_info.name : 'Doctor';
+                        const docSpec = slot.doctor_info ? slot.doctor_info.specialty : '';
+                        grid.innerHTML += `
+                            <div class="slot-card" style="padding: 0.8rem; text-align: left; display: flex; flex-direction: column; gap: 0.2rem;" onclick="selectCalendarSlot('${slot._id}', this)">
+                                <div style="font-weight: 700; color: var(--secondary); font-size: 0.95rem;">${slot.time}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">${docName} <span style="color: var(--primary);">(${docSpec})</span></div>
+                            </div>
+                        `;
+                    });
+                }
+            }, 300);
+        }
+
+        // Choose Slot
+        function selectCalendarSlot(slotId, element) {
+            calendarSelectedSlotId = slotId;
+            document.querySelectorAll('#timeSlotsGrid .slot-card').forEach(el => {
+                el.style.borderColor = '#bae6fd';
+                el.style.background = 'linear-gradient(135deg, #f0f9ff, #ffffff)';
+            });
+            element.style.borderColor = 'var(--primary)';
+            element.style.background = 'var(--primary-light)';
+            updateConfirmBtn();
+        }
+
+        function updateConfirmBtn() {
+            const btn = document.getElementById('confirmBookingBtn');
+            if (calendarSelectedSlotId) {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            } else {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+            }
+        }
+        
+        async function confirmCalendarBooking() {
+            if (!calendarSelectedSlotId) return;
+            const btn = document.getElementById('confirmBookingBtn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Booking...';
+            btn.disabled = true;
+
+            const aiSummary = document.getElementById('aiInput') ? document.getElementById('aiInput').value : 'N/A';
+            const data = await apiRequest('/api/patient/book', 'POST', { slot_id: calendarSelectedSlotId, ai_summary: aiSummary });
+
+            if (data && data.success) {
+                alert('Appointment booked successfully!');
+                loadPatientData();
+                initCalendar();
+                btn.innerHTML = 'Confirm Booking';
+                calendarSelectedSlotId = null;
+                document.getElementById('timeSlotsContainer').style.display = 'none';
+                updateConfirmBtn();
+            } else {
+                alert('Booking failed: ' + (data?.message || 'Unknown error'));
+                btn.innerHTML = 'Confirm Booking';
+                updateConfirmBtn();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (document.getElementById('calendarDays')) {
+                initCalendar();
+            }
+        });
+    </script>
+</body>
+</html>
