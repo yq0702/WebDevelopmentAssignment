@@ -22,7 +22,6 @@
             overflow: hidden;
         }
 
-        /* 1. Aurora 流体背景动画 */
         .bg-aurora {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             z-index: -1; overflow: hidden; pointer-events: none; background: #0f172a;
@@ -41,7 +40,6 @@
             100% { transform: translate(40px, -30px) scale(1.05); }
         }
 
-        /* 2. 左右分屏布局 */
         .auth-wrapper {
             display: flex;
             width: 90%;
@@ -56,7 +54,6 @@
             animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
-        /* 左侧品牌展示区 */
         .auth-brand {
             flex: 1;
             background: linear-gradient(135deg, rgba(2, 132, 199, 0.9), rgba(139, 92, 246, 0.8));
@@ -96,7 +93,6 @@
         }
         .brand-footer { font-size: 0.85rem; opacity: 0.7; z-index: 1; }
 
-        /* 右侧表单区 */
         .auth-form-area {
             flex: 1;
             background: #ffffff;
@@ -109,7 +105,6 @@
         .auth-header h2 { font-size: 1.8rem; font-weight: 800; color: var(--secondary); margin-bottom: 0.5rem; }
         .auth-header p { color: var(--text-muted); font-size: 0.95rem; }
 
-        /* Tab 切换器 */
         .auth-tabs {
             display: flex;
             background: #f1f5f9;
@@ -136,7 +131,6 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
 
-        /* 表单样式 */
         .auth-form { display: none; animation: fadeIn 0.3s ease; }
         .auth-form.active { display: block; }
 
@@ -191,7 +185,6 @@
             box-shadow: 0 6px 16px rgba(2, 132, 199, 0.4);
         }
 
-        /* 分割线与第三方登录 */
         .divider {
             display: flex;
             align-items: center;
@@ -234,7 +227,6 @@
         .social-btn.microsoft:hover { color: #00a4ef; border-color: #00a4ef; }
         .social-btn.facebook:hover { color: #1877f2; border-color: #1877f2; }
 
-        /* 响应式隐藏左侧 */
         @media (max-width: 850px) {
             .auth-brand { display: none; }
             .auth-wrapper { width: 95%; max-width: 450px; min-height: auto; }
@@ -243,11 +235,9 @@
     </style>
 </head>
 <body>
-    <!-- 流体背景 -->
     <div class="bg-aurora"><span></span><span></span><span></span></div>
 
     <div class="auth-wrapper">
-        <!-- 左侧品牌区 -->
         <div class="auth-brand">
             <div class="brand-logo">
                 <i class="fa-solid fa-heart-pulse"></i> MediSync</span>
@@ -264,20 +254,17 @@
             <div class="brand-footer">© 2024 MediSync Health Tech. All rights reserved.</div>
         </div>
 
-        <!-- 右侧表单区 -->
         <div class="auth-form-area">
             <div class="auth-header">
                 <h2 id="formTitle">Welcome back!</h2>
                 <p id="formDesc">Please enter your details to sign in.</p>
             </div>
 
-            <!-- Tab 切换 -->
             <div class="auth-tabs">
                 <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
                 <div class="auth-tab" onclick="switchAuthTab('register')">Create Account</div>
             </div>
 
-            <!-- 登录表单 -->
             <form id="login-form" class="auth-form active" onsubmit="event.preventDefault(); handlePatientLogin();">
                 <div class="input-group">
                     <i class="fa-solid fa-user"></i>
@@ -291,7 +278,6 @@
                 <button type="submit" class="btn-auth">Sign In <i class="fa-solid fa-arrow-right" style="margin-left: 5px;"></i></button>
             </form>
 
-                        <!-- 注册表单 -->
             <form id="register-form" class="auth-form" onsubmit="event.preventDefault(); handlePatientRegister();">
                 <div class="input-group">
                     <i class="fa-solid fa-id-card"></i>
@@ -299,12 +285,10 @@
                 </div>
                 <div class="input-group">
                     <i class="fa-solid fa-address-card"></i>
-                    <!-- 🌟 新增：IC Number，限制为 12 位数字（允许带连字符） -->
                     <input type="text" id="reg-ic" placeholder="IC Number (e.g., 900101-14-5678)" pattern="^\d{6}-?\d{2}-?\d{4}$" title="Please enter a valid 12-digit IC number" required>
                 </div>
                 <div class="input-group">
                     <i class="fa-solid fa-envelope"></i>
-                    <!-- 🌟 新增：Email，使用 type="email" 触发浏览器原生验证 -->
                     <input type="email" id="reg-email" placeholder="Email Address (e.g., ahmad@email.com)" required>
                 </div>
                 <div class="input-group">
@@ -319,10 +303,8 @@
                 <button type="submit" class="btn-auth">Create Account <i class="fa-solid fa-user-plus" style="margin-left: 5px;"></i></button>
             </form>
 
-            <!-- 分割线 -->
             <div class="divider"><span>Or continue with</span></div>
 
-            <!-- 第三方社交登录 -->
             <div class="social-login">
                 <div class="social-btn google" onclick="mockSocialLogin('Google')" title="Sign in with Google">
                     <i class="fa-brands fa-google"></i>
@@ -342,9 +324,7 @@
 
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 
-    <!-- 页面专属交互脚本 -->
     <script>
-        // Tab 切换逻辑
         function switchAuthTab(type) {
             const tabs = document.querySelectorAll('.auth-tab');
             const forms = document.querySelectorAll('.auth-form');
@@ -367,7 +347,6 @@
             }
         }
 
-        // 密码显示/隐藏
         function togglePassword(inputId, icon) {
             const input = document.getElementById(inputId);
             if (input.type === 'password') {
@@ -380,8 +359,7 @@
                 icon.classList.add('fa-eye');
             }
         }
-
-        // Mock 第三方登录提示 (符合 Simple & Achievable 原则)
+        
         function mockSocialLogin(provider) {
             alert(`${provider} OAuth integration is coming soon!\n\nFor now, please use the standard Sign In / Create Account form.`);
         }
