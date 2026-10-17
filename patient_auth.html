@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediSync - Patient Portal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        /* ==================== 🌟 AUTH PAGE EXCLUSIVE STYLES ==================== */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 1. Aurora 流体背景动画 */
+        .bg-aurora {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; overflow: hidden; pointer-events: none; background: #0f172a;
+        }
+        .bg-aurora span {
+            position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.4;
+            animation: floatBlob 20s infinite alternate ease-in-out;
+        }
+        .bg-aurora span:nth-child(1) { width: 600px; height: 600px; background: #0284c7; top: -10%; left: -10%; }
+        .bg-aurora span:nth-child(2) { width: 700px; height: 700px; background: #8b5cf6; bottom: -15%; right: -10%; animation-delay: -7s; }
+        .bg-aurora span:nth-child(3) { width: 500px; height: 500px; background: #10b981; top: 40%; left: 40%; animation-delay: -14s; }
+        @keyframes floatBlob {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(80px, -50px) scale(1.15); }
+            66% { transform: translate(-50px, 50px) scale(0.9); }
+            100% { transform: translate(40px, -30px) scale(1.05); }
+        }
+
+        /* 2. 左右分屏布局 */
+        .auth-wrapper {
+            display: flex;
+            width: 90%;
+            max-width: 1100px;
+            min-height: 650px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        /* 左侧品牌展示区 */
+        .auth-brand {
+            flex: 1;
+            background: linear-gradient(135deg, rgba(2, 132, 199, 0.9), rgba(139, 92, 246, 0.8));
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+            color: white;
+        }
+        .auth-brand::before {
+            content: '';
+            position: absolute;
+            top: -50%; right: -50%;
+            width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+            animation: pulseBrand 8s infinite ease-in-out;
+        }
+        @keyframes pulseBrand {
+            0%, 100% { transform: scale(1) translate(0, 0); }
+            50% { transform: scale(1.1) translate(-20px, 20px); }
+        }
+        .brand-logo {
+            font-size: 2rem; font-weight: 800; display: flex; align-items: center; gap: 0.8rem;
+            z-index: 1;
+        }
+        .brand-logo i { font-size: 2.2rem; animation: heartBeat 2.5s infinite ease-in-out; }
+        .brand-content { z-index: 1; }
+        .brand-content h1 { font-size: 2.5rem; font-weight: 800; line-height: 1.2; margin-bottom: 1rem; }
+        .brand-content p { font-size: 1.1rem; opacity: 0.9; line-height: 1.6; margin-bottom: 2rem; }
+        .brand-features { display: flex; flex-direction: column; gap: 1rem; }
+        .brand-feature { display: flex; align-items: center; gap: 1rem; font-size: 0.95rem; font-weight: 500; }
+        .brand-feature i {
+            width: 32px; height: 32px; background: rgba(255,255,255,0.2);
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+        }
+        .brand-footer { font-size: 0.85rem; opacity: 0.7; z-index: 1; }
+
+        /* 右侧表单区 */
+        .auth-form-area {
+            flex: 1;
+            background: #ffffff;
+            padding: 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .auth-header { margin-bottom: 2rem; }
+        .auth-header h2 { font-size: 1.8rem; font-weight: 800; color: var(--secondary); margin-bottom: 0.5rem; }
+        .auth-header p { color: var(--text-muted); font-size: 0.95rem; }
+
+        /* Tab 切换器 */
+        .auth-tabs {
+            display: flex;
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 4px;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+        .auth-tab {
+            flex: 1;
+            text-align: center;
+            padding: 0.75rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            z-index: 1;
+        }
+        .auth-tab.active {
+            background: #ffffff;
+            color: var(--primary);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 表单样式 */
+        .auth-form { display: none; animation: fadeIn 0.3s ease; }
+        .auth-form.active { display: block; }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1.2rem;
+        }
+        .input-group i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 0.9rem 1rem 0.9rem 2.8rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            background: #f8fafc;
+        }
+        .input-group input:focus {
+            border-color: var(--primary);
+            background: #fff;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.1);
+        }
+        .toggle-pass {
+            position: absolute; right: 1rem; top: 50%; transform: translateY(-50%);
+            cursor: pointer; color: var(--text-muted);
+        }
+
+        .btn-auth {
+            width: 100%;
+            padding: 0.9rem;
+            background: linear-gradient(135deg, var(--primary), #0369a1);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 0.5rem;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+        .btn-auth:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(2, 132, 199, 0.4);
+        }
+
+        /* 分割线与第三方登录 */
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 1.5rem 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+        .divider span { padding: 0 1rem; }
+
+        .social-login {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.8rem;
+        }
+        .social-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.8rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            background: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 1.2rem;
+        }
+        .social-btn:hover {
+            border-color: var(--primary);
+            background: #f0f9ff;
+            transform: translateY(-2px);
+        }
+        .social-btn.google:hover { color: #ea4335; border-color: #ea4335; }
+        .social-btn.apple:hover { color: #000; border-color: #000; }
+        .social-btn.microsoft:hover { color: #00a4ef; border-color: #00a4ef; }
+        .social-btn.facebook:hover { color: #1877f2; border-color: #1877f2; }
+
+        /* 响应式隐藏左侧 */
+        @media (max-width: 850px) {
+            .auth-brand { display: none; }
+            .auth-wrapper { width: 95%; max-width: 450px; min-height: auto; }
+            .auth-form-area { padding: 2rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 流体背景 -->
+    <div class="bg-aurora"><span></span><span></span><span></span></div>
+
+    <div class="auth-wrapper">
+        <!-- 左侧品牌区 -->
+        <div class="auth-brand">
+            <div class="brand-logo">
+                <i class="fa-solid fa-heart-pulse"></i> MediSync</span>
+            </div>
+            <div class="brand-content">
+                <h1>Book smarter.<br>Remember better.</h1>
+                <p>Experience seamless hospital consultation booking with AI-powered triage and automated reminders.</p>
+                <div class="brand-features">
+                    <div class="brand-feature"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Symptom Analysis</div>
+                    <div class="brand-feature"><i class="fa-solid fa-bell"></i> Smart Reminders</div>
+                    <div class="brand-feature"><i class="fa-solid fa-shield-halved"></i> Secure & Private</div>
+                </div>
+            </div>
+            <div class="brand-footer">© 2024 MediSync Health Tech. All rights reserved.</div>
+        </div>
+
+        <!-- 右侧表单区 -->
+        <div class="auth-form-area">
+            <div class="auth-header">
+                <h2 id="formTitle">Welcome back!</h2>
+                <p id="formDesc">Please enter your details to sign in.</p>
+            </div>
+
+            <!-- Tab 切换 -->
+            <div class="auth-tabs">
+                <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
+                <div class="auth-tab" onclick="switchAuthTab('register')">Create Account</div>
+            </div>
+
+            <!-- 登录表单 -->
+            <form id="login-form" class="auth-form active" onsubmit="event.preventDefault(); handlePatientLogin();">
+                <div class="input-group">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" id="login-user" placeholder="Username or Email" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" id="login-pass" placeholder="Password" required>
+                    <i class="fa-solid fa-eye toggle-pass" onclick="togglePassword('login-pass', this)"></i>
+                </div>
+                <button type="submit" class="btn-auth">Sign In <i class="fa-solid fa-arrow-right" style="margin-left: 5px;"></i></button>
+            </form>
+
+                        <!-- 注册表单 -->
+            <form id="register-form" class="auth-form" onsubmit="event.preventDefault(); handlePatientRegister();">
+                <div class="input-group">
+                    <i class="fa-solid fa-id-card"></i>
+                    <input type="text" id="reg-name" placeholder="Full Name as Per I/C (e.g., Ahmad bin Ali)" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-address-card"></i>
+                    <!-- 🌟 新增：IC Number，限制为 12 位数字（允许带连字符） -->
+                    <input type="text" id="reg-ic" placeholder="IC Number (e.g., 900101-14-5678)" pattern="^\d{6}-?\d{2}-?\d{4}$" title="Please enter a valid 12-digit IC number" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-envelope"></i>
+                    <!-- 🌟 新增：Email，使用 type="email" 触发浏览器原生验证 -->
+                    <input type="email" id="reg-email" placeholder="Email Address (e.g., ahmad@email.com)" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-user"></i>
+                    <input type="text" id="reg-user" placeholder="Choose a Username" required>
+                </div>
+                <div class="input-group">
+                    <i class="fa-solid fa-lock"></i>
+                    <input type="password" id="reg-pass" placeholder="Create Password" required>
+                    <i class="fa-solid fa-eye toggle-pass" onclick="togglePassword('reg-pass', this)"></i>
+                </div>
+                <button type="submit" class="btn-auth">Create Account <i class="fa-solid fa-user-plus" style="margin-left: 5px;"></i></button>
+            </form>
+
+            <!-- 分割线 -->
+            <div class="divider"><span>Or continue with</span></div>
+
+            <!-- 第三方社交登录 -->
+            <div class="social-login">
+                <div class="social-btn google" onclick="mockSocialLogin('Google')" title="Sign in with Google">
+                    <i class="fa-brands fa-google"></i>
+                </div>
+                <div class="social-btn apple" onclick="mockSocialLogin('Apple')" title="Sign in with Apple">
+                    <i class="fa-brands fa-apple"></i>
+                </div>
+                <div class="social-btn microsoft" onclick="mockSocialLogin('Microsoft')" title="Sign in with Microsoft">
+                    <i class="fa-brands fa-microsoft"></i>
+                </div>
+                <div class="social-btn facebook" onclick="mockSocialLogin('Facebook')" title="Sign in with Facebook">
+                    <i class="fa-brands fa-facebook-f"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    <!-- 页面专属交互脚本 -->
+    <script>
+        // Tab 切换逻辑
+        function switchAuthTab(type) {
+            const tabs = document.querySelectorAll('.auth-tab');
+            const forms = document.querySelectorAll('.auth-form');
+            const title = document.getElementById('formTitle');
+            const desc = document.getElementById('formDesc');
+
+            tabs.forEach(tab => tab.classList.remove('active'));
+            forms.forEach(form => form.classList.remove('active'));
+
+            if (type === 'login') {
+                tabs[0].classList.add('active');
+                document.getElementById('login-form').classList.add('active');
+                title.textContent = 'Welcome back!';
+                desc.textContent = 'Please enter your details to sign in.';
+            } else {
+                tabs[1].classList.add('active');
+                document.getElementById('register-form').classList.add('active');
+                title.textContent = 'Create your account';
+                desc.textContent = 'Join MediSync for a smarter health journey.';
+            }
+        }
+
+        // 密码显示/隐藏
+        function togglePassword(inputId, icon) {
+            const input = document.getElementById(inputId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        // Mock 第三方登录提示 (符合 Simple & Achievable 原则)
+        function mockSocialLogin(provider) {
+            alert(`${provider} OAuth integration is coming soon!\n\nFor now, please use the standard Sign In / Create Account form.`);
+        }
+    </script>
+</body>
+</html>
