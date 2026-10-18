@@ -1,588 +1,284 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediSync - Staff Dashboard</title>
 
-    <link rel="preconnect"
-          href="https://fonts.googleapis.com">
-
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet">
-
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='styles.css') }}">
-
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
-
 
 <body class="staff-page">
 
-
-<!-- ================= NAVBAR ================= -->
-
-<nav class="navbar">
-
-    <a href="/staff/dashboard"
-       class="logo">
-
-        <i class="fa-solid fa-heart-pulse logo-icon"></i>
-
-        Medi<span>Sync</span>
-
-    </a>
-
-
-    <div class="user-profile">
-
-        <div class="profile-icon">
-
-            <i class="fa-solid fa-user-nurse"></i>
-
-        </div>
-
-
-        <div class="user-info">
-
-            <span class="user-name">
-                {{ user.name }}
-            </span>
-
-            <span class="user-role">
-                Hospital Staff
-            </span>
-
-        </div>
-
-
-        <button
-                class="btn btn-outline btn-sm"
-                onclick="logoutUser()">
-
-            <i class="fa-solid fa-right-from-bracket"></i>
-
-            Logout
-
-        </button>
-
-    </div>
-
-</nav>
-
-
-
-<main class="container">
-
-
-    <!-- ================= HERO ================= -->
-
-    <section class="dashboard-hero staff-dashboard-hero">
-
-        <div>
-
-            <span class="hero-label">
-
-                <i class="fa-solid fa-hospital-user"></i>
-
-                FRONT DESK
-
-            </span>
-
-
-            <h1>
-                Staff Dashboard
-            </h1>
-
-
-            <p>
-                Manage patient arrivals, appointment queues
-                and hospital check-ins.
-            </p>
-
-
-            <span id="staffCurrentDate"
-                  class="dashboard-date">
-            </span>
-
-        </div>
-
-
-        <button
-                class="hero-button"
-                onclick="refreshStaffDashboard()">
-
-            <i class="fa-solid fa-rotate-right"></i>
-
-            Refresh Queue
-
-        </button>
-
-    </section>
-
-
-
-    <!-- ================= STATISTICS ================= -->
-
-    <section class="dashboard-metrics">
-
-
-        <div class="metric-card metric-blue">
-
-            <div class="metric-icon">
-
-                <i class="fa-solid fa-clock"></i>
-
+    <!-- ================= NAVBAR ================= -->
+    <nav class="navbar">
+        <a href="/staff/dashboard" class="logo">
+            <i class="fa-solid fa-heart-pulse logo-icon"></i>
+            Medi<span>Sync</span>
+        </a>
+        <div class="user-profile">
+            <div class="profile-icon"><i class="fa-solid fa-user-nurse"></i></div>
+            <div class="user-info">
+                <span class="user-name">{{ user.name }}</span>
+                <span class="user-role">Hospital Staff</span>
             </div>
+            <button class="btn btn-outline btn-sm" onclick="logoutUser()">
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
+            </button>
+        </div>
+    </nav>
 
+    <main class="container">
+        <!-- ================= HERO ================= -->
+        <section class="dashboard-hero staff-dashboard-hero">
             <div>
+                <span class="hero-label"><i class="fa-solid fa-hospital-user"></i> FRONT DESK & PHARMACY</span>
+                <h1>Staff Operations Dashboard</h1>
+                <p>Manage patient arrivals, review doctor prescriptions, and handle dispensing.</p>
+                <span id="staffCurrentDate" class="dashboard-date"></span>
+            </div>
+            <button class="hero-button" onclick="refreshStaffDashboard()">
+                <i class="fa-solid fa-rotate-right"></i> Refresh Queue
+            </button>
+            <button class="hero-button" onclick="openWalkinModal()" style="background: var(--accent-green);">
+            <i class="fa-solid fa-user-plus"></i> Register Walk-in
+            </button>
+        </section>
 
-                <span>
-                    Waiting Check-In
-                </span>
-
-                <strong id="waitingCount">
-                    0
-                </strong>
-
-                <small>
-                    Booked patients
-                </small>
-
+        <!-- ================= STATISTICS ================= -->
+        <section class="dashboard-metrics">
+            <div class="metric-card metric-blue">
+                <div class="metric-icon"><i class="fa-solid fa-clock"></i></div>
+                <div>
+                    <span>Waiting / Checked-in</span>
+                    <strong id="waitingCount">0</strong>
+                    <small>In clinic queue</small>
+                </div>
             </div>
 
-        </div>
-
-
-
-        <div class="metric-card metric-purple">
-
-            <div class="metric-icon">
-
-                <i class="fa-solid fa-filter"></i>
-
+            <div class="metric-card metric-purple">
+                <div class="metric-icon"><i class="fa-solid fa-filter"></i></div>
+                <div>
+                    <span>Visible Results</span>
+                    <strong id="visibleCount">0</strong>
+                    <small>Current filtered queue</small>
+                </div>
             </div>
 
-            <div>
-
-                <span>
-                    Visible Results
-                </span>
-
-                <strong id="visibleCount">
-                    0
-                </strong>
-
-                <small>
-                    Current filtered queue
-                </small>
-
+            <div class="metric-card metric-green">
+                <div class="metric-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <div>
+                    <span>AI Consultations</span>
+                    <strong id="staffAiCount">0</strong>
+                    <small>With AI summary</small>
+                </div>
             </div>
 
-        </div>
-
-
-
-        <div class="metric-card metric-green">
-
-            <div class="metric-icon">
-
-                <i class="fa-solid fa-wand-magic-sparkles"></i>
-
+            <!-- Pending Dispensing -->
+            <div class="metric-card metric-amber">
+                <div class="metric-icon"><i class="fa-solid fa-pills"></i></div>
+                <div>
+                    <span>Pending Dispensing</span>
+                    <strong id="dispensingCount">0</strong>
+                    <small>Prescriptions ready</small>
+                </div>
             </div>
 
-            <div>
+            <div class="metric-card metric-amber">
+                <div class="metric-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <div>
+                    <span>Staff Status</span>
+                    <strong class="status-text">Active</strong>
+                    <small>Front desk online</small>
+                </div>
+            </div>
+        </section>
 
-                <span>
-                    AI Consultations
-                </span>
-
-                <strong id="staffAiCount">
-                    0
-                </strong>
-
-                <small>
-                    With AI summary
-                </small>
-
+        <!-- ================= PATIENT QUEUE ================= -->
+        <section class="card dashboard-panel">
+            <div class="panel-header">
+                <div>
+                    <div class="card-title"><i class="fa-solid fa-users-line"></i> Patient Service Queue</div>
+                    <p>View appointments, doctor notes, and manage prescription dispensing.</p>
+                </div>
+                <span class="live-status"><span class="live-dot"></span> Live Queue</span>
             </div>
 
-        </div>
-
-
-
-        <div class="metric-card metric-amber">
-
-            <div class="metric-icon">
-
-                <i class="fa-solid fa-circle-check"></i>
-
-            </div>
-
-            <div>
-
-                <span>
-                    Staff Status
-                </span>
-
-                <strong class="status-text">
-                    Active
-                </strong>
-
-                <small>
-                    Front desk online
-                </small>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-
-    <!-- ================= PATIENT QUEUE ================= -->
-
-    <section class="card dashboard-panel">
-
-
-        <div class="panel-header">
-
-            <div>
-
-                <div class="card-title">
-
-                    <i class="fa-solid fa-users-line"></i>
-
-                    Patient Appointment Queue
-
+            <!-- TOOLBAR -->
+            <div class="dashboard-toolbar">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="search" id="staffSearch" placeholder="Search patient or patient ID...">
                 </div>
 
+                <select id="staffStatusFilter" class="form-input toolbar-select">
+                    <option value="all">All Statuses</option>
+                    <option value="waiting">Waiting / Checked-in</option>
+                    <option value="completed">Pending Dispensing</option>
+                </select>
 
-                <p>
-                    View booked appointments and check patients
-                    in when they arrive.
-                </p>
+                <!-- (Active vs History) -->
+                <select id="staffViewFilter" class="form-input toolbar-select">
+                    <option value="active">Active Queue</option>
+                    <option value="history">Patient History</option>
+                </select>
 
+
+                <select id="staffAiFilter" class="form-input toolbar-select">
+                    <option value="all">All Patients</option>
+                    <option value="ai">With AI Summary</option>
+                    <option value="no-ai">Without AI Summary</option>
+                </select>
+
+                <select id="staffSort" class="form-input toolbar-select">
+                    <option value="default">Default Order</option>
+                    <option value="name">Patient Name A-Z</option>
+                    <option value="date">Appointment Date</option>
+                </select>
+
+                <button class="btn btn-outline" onclick="exportStaffCSV()">
+                    <i class="fa-solid fa-file-csv"></i> Export
+                </button>
+                <button class="btn btn-outline" onclick="printStaffQueue()">
+                    <i class="fa-solid fa-print"></i> Print
+                </button>
             </div>
 
+            <div id="staffMessage" class="status-message"></div>
 
-            <span class="live-status">
+            <div class="table-wrapper modern-table-wrapper">
+                <table class="modern-dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Appointment</th>
+                            <th>AI Pre-Consultation</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="staffQueueBody">
+                        <tr>
+                            <td colspan="5" class="loading-row">
+                                <i class="fa-solid fa-spinner fa-spin"></i> Loading appointments...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
 
-                <span class="live-dot"></span>
-
-                Live Queue
-
-            </span>
-
-        </div>
-
-
-
-        <!-- TOOLBAR -->
-
-        <div class="dashboard-toolbar">
-
-
-            <div class="search-box">
-
-                <i class="fa-solid fa-magnifying-glass"></i>
-
-                <input
-                        type="search"
-                        id="staffSearch"
-                        placeholder="Search patient or patient ID...">
-
+    <!-- ================= PATIENT DETAIL MODAL ================= -->
+    <div id="staffPatientModal" class="dashboard-modal">
+        <div class="dashboard-modal-card" style="max-width: 600px;">
+            <div class="modal-header">
+                <div>
+                    <span class="modal-label">Patient Appointment & Clinical Details</span>
+                    <h2 id="staffModalName">Patient</h2>
+                </div>
+                <button class="modal-close-button" onclick="closeStaffModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
+            <div class="modal-detail-grid">
+                <div><span>Patient ID</span><strong id="staffModalPatientId">-</strong></div>
+                <div><span>Date</span><strong id="staffModalDate">-</strong></div>
+                <div><span>Time</span><strong id="staffModalTime">-</strong></div>
+                <div><span>Status</span><strong id="staffModalStatus">Booked</strong></div>
 
+                <div><span>Doctor</span><strong id="staffModalDoctor">-</strong></div>
+                <div><span>Specialty</span><strong id="staffModalSpecialty">-</strong></div>
+            </div>
 
-            <select
-                    id="staffAiFilter"
-                    class="form-input toolbar-select">
+            <div class="modal-section">
+                <span class="modal-section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Pre-Consultation Summary</span>
+                <div id="staffModalAi" class="modal-ai-box">No AI consultation provided.</div>
+            </div>
 
-                <option value="all">
-                    All Patients
-                </option>
+            <div class="modal-section">
+                <span class="modal-section-title"><i class="fa-solid fa-file-medical"></i> Doctor's Consultation Notes</span>
+                <div id="staffModalNotes" class="modal-ai-box" style="background: #f8fafc; border-left: 4px solid var(--primary);">No notes provided.</div>
+            </div>
 
-                <option value="ai">
-                    With AI Summary
-                </option>
+            <div class="modal-section">
+                <span class="modal-section-title"><i class="fa-solid fa-pills"></i> Prescription / Medicine</span>
+                <div id="staffModalPrescription" class="modal-ai-box" style="background: #f0fdf4; border-left: 4px solid var(--accent-green);">No prescription provided.</div>
+            </div>
 
-                <option value="no-ai">
-                    Without AI Summary
-                </option>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeStaffModal()">Close</button>
 
-            </select>
+                <button class="btn btn-outline" onclick="printStaffPrescription()">
+                    <i class="fa-solid fa-print"></i> Print Summary
+                </button>
 
-
-
-            <select
-                    id="staffSort"
-                    class="form-input toolbar-select">
-
-                <option value="default">
-                    Default Order
-                </option>
-
-                <option value="name">
-                    Patient Name A-Z
-                </option>
-
-                <option value="date">
-                    Appointment Date
-                </option>
-
-            </select>
-
-
-
-            <button
-                    class="btn btn-outline"
-                    onclick="exportStaffCSV()">
-
-                <i class="fa-solid fa-file-csv"></i>
-
-                Export
-
-            </button>
-
-
-
-            <button
-                    class="btn btn-outline"
-                    onclick="printStaffQueue()">
-
-                <i class="fa-solid fa-print"></i>
-
-                Print
-
-            </button>
-
+                <button id="staffModalCheckInButton" class="btn btn-primary" style="background: var(--primary);">
+                    <i class="fa-solid fa-user-check"></i> Check In Patient
+                </button>
+                <button id="staffModalDispenseButton" class="btn btn-primary" style="background: var(--accent-green);">
+                    <i class="fa-solid fa-hand-holding-medical"></i> Mark as Dispensed
+                </button>
+            </div>
         </div>
-
-
-
-        <div id="staffMessage"
-             class="status-message">
-        </div>
-
-
-
-        <div class="table-wrapper modern-table-wrapper">
-
-
-            <table class="modern-dashboard-table">
-
-
-                <thead>
-
-                <tr>
-
-                    <th>
-                        Patient
-                    </th>
-
-                    <th>
-                        Appointment
-                    </th>
-
-                    <th>
-                        AI Pre-Consultation
-                    </th>
-
-                    <th>
-                        Status
-                    </th>
-
-                    <th>
-                        Action
-                    </th>
-
-                </tr>
-
-                </thead>
-
-
-
-                <tbody id="staffQueueBody">
-
-                <tr>
-
-                    <td colspan="5"
-                        class="loading-row">
-
-                        <i class="fa-solid fa-spinner fa-spin"></i>
-
-                        Loading appointments...
-
-                    </td>
-
-                </tr>
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </section>
-
-</main>
-
-<!-- ================= PATIENT DETAIL MODAL ================= -->
-
-<div id="staffPatientModal"
-     class="dashboard-modal">
-
-    <div class="dashboard-modal-card">
-
-
+    </div>
+    <!-- Walk-in Registration Modal -->
+<div id="walkinModal" class="dashboard-modal">
+    <div class="dashboard-modal-card" style="max-width: 500px;">
         <div class="modal-header">
-
-
             <div>
-
-                <span class="modal-label">
-                    Patient Appointment
-                </span>
-
-                <h2 id="staffModalName">
-                    Patient
-                </h2>
-
+                <span class="modal-label">Front Desk Service</span>
+                <h2>Register Walk-in Patient</h2>
+                <p class="modal-subtitle">Quickly register and check in a walk-in patient.</p>
             </div>
-
-
-            <button
-                    class="modal-close-button"
-                    onclick="closeStaffModal()">
-
+            <button class="modal-close-button" onclick="closeWalkinModal()">
                 <i class="fa-solid fa-xmark"></i>
-
             </button>
-
         </div>
-
-
-
-        <div class="modal-detail-grid">
-
-
-            <div>
-
-                <span>
-                    Patient ID
-                </span>
-
-                <strong id="staffModalPatientId">
-                    -
-                </strong>
-
-            </div>
-
-
-            <div>
-
-                <span>
-                    Date
-                </span>
-
-                <strong id="staffModalDate">
-                    -
-                </strong>
-
-            </div>
-
-
-            <div>
-
-                <span>
-                    Time
-                </span>
-
-                <strong id="staffModalTime">
-                    -
-                </strong>
-
-            </div>
-
-
-            <div>
-
-                <span>
-                    Status
-                </span>
-
-                <strong>
-                    Booked
-                </strong>
-
-            </div>
-
-        </div>
-
-
 
         <div class="modal-section">
-
-            <span class="modal-section-title">
-
-                <i class="fa-solid fa-wand-magic-sparkles"></i>
-
-                AI Pre-Consultation Summary
-
-            </span>
-
-
-            <div id="staffModalAi"
-                 class="modal-ai-box">
-
-                No AI consultation provided.
-
-            </div>
-
+            <label class="modal-section-title"><i class="fa-solid fa-user"></i> Patient Name</label>
+            <input type="text" id="walkinName" class="form-input" placeholder="Full Name" required>
         </div>
 
+        <div class="modal-section">
+            <label class="modal-section-title"><i class="fa-solid fa-id-card"></i> IC Number (Optional)</label>
+            <input type="text" id="walkinIc" class="form-input" placeholder="e.g., 900101-14-5678">
+        </div>
 
+        <div class="modal-section">
+            <label class="modal-section-title"><i class="fa-solid fa-user-doctor"></i> Assign Doctor</label>
+            <select id="walkinDoctor" class="form-input">
+                <option value="">Loading doctors...</option>
+            </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="modal-section">
+                <label class="modal-section-title"><i class="fa-regular fa-calendar"></i> Date</label>
+                <input type="date" id="walkinDate" class="form-input" required>
+            </div>
+            <div class="modal-section">
+                <label class="modal-section-title"><i class="fa-regular fa-clock"></i> Available Time</label>
+                <select id="walkinTime" class="form-input" required>
+                    <option value="">-- Select Doctor & Date First --</option>
+                </select>
+            </div>
+        </div>
 
         <div class="modal-actions">
-
-
-            <button
-                    class="btn btn-outline"
-                    onclick="closeStaffModal()">
-
-                Close
-
+            <button class="btn btn-outline" onclick="closeWalkinModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="registerWalkin()">
+                <i class="fa-solid fa-check"></i> Register & Check-In
             </button>
-
-
-            <button
-                    id="staffModalCheckInButton"
-                    class="btn btn-primary">
-
-                <i class="fa-solid fa-user-check"></i>
-
-                Check In Patient
-
-            </button>
-
         </div>
-
     </div>
-
 </div>
 
-<script src="{{ url_for('static', filename='staff.js') }}"></script>
-
+    <script src="{{ url_for('static', filename='staff.js') }}"></script>
 </body>
-
 </html>

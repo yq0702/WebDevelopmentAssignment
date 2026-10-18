@@ -1,728 +1,324 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediSync - Doctor Dashboard</title>
 
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    <title>
-        MediSync - Doctor Dashboard
-    </title>
-
-    <link rel="preconnect"
-          href="https://fonts.googleapis.com">
-
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet">
-
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <link rel="stylesheet"
-          href="{{ url_for('static', filename='styles.css') }}">
-
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
-
 
 <body class="doctor-page">
 
-
-<nav class="navbar">
-
-    <a href="/doctor/dashboard"
-       class="logo">
-
-        <i class="fa-solid fa-heart-pulse logo-icon"></i>
-
-        Medi<span>Sync</span>
-
-    </a>
-
-
-    <div class="user-profile">
-
-        <div class="profile-icon doctor-navbar-icon">
-
-            <i class="fa-solid fa-user-doctor"></i>
-
-        </div>
-
-
-        <div class="user-info">
-
-            <span class="user-name">
-                {{ user.name }}
-            </span>
-
-            <span class="user-role">
-                Medical Doctor
-            </span>
-
-        </div>
-
-
-        <button
-                class="btn btn-outline btn-sm"
-                onclick="logoutUser()">
-
-            <i class="fa-solid fa-right-from-bracket"></i>
-
-            Logout
-
-        </button>
-
-    </div>
-
-</nav>
-
-
-
-<main class="container">
-
-
-    <!-- DOCTOR PROFILE -->
-
-    <section class="doctor-profile-panel">
-
-
-        <div class="doctor-large-icon">
-
-            <i class="fa-solid fa-user-doctor"></i>
-
-        </div>
-
-
-        <div class="doctor-profile-info">
-
-            <span>
-                Doctor Workspace
-            </span>
-
-            <h2>
-                {{ user.name }}
-            </h2>
-
-            <p>
-                MediSync Clinical Consultation Portal
-            </p>
-
-        </div>
-
-
-        <span class="doctor-duty-badge">
-
-            <span class="live-dot"></span>
-
-            On Duty
-
-        </span>
-
-    </section>
-
-
-
-    <!-- HERO -->
-
-    <section class="dashboard-hero doctor-dashboard-hero">
-
-
-        <div>
-
-            <span class="hero-label">
-
-                <i class="fa-solid fa-stethoscope"></i>
-
-                CLINICAL QUEUE
-
-            </span>
-
-
-            <h1>
-                Consultation Dashboard
-            </h1>
-
-
-            <p>
-                Review checked-in patients,
-                AI pre-consultation information
-                and complete consultations.
-            </p>
-
-
-            <span id="doctorCurrentDate"
-                  class="dashboard-date">
-            </span>
-
-        </div>
-
-
-        <button
-                class="hero-button"
-                onclick="refreshDoctorDashboard()">
-
-            <i class="fa-solid fa-rotate-right"></i>
-
-            Refresh Queue
-
-        </button>
-
-    </section>
-
-
-
-    <!-- STATS -->
-
-    <section class="dashboard-metrics">
-
-
-        <div class="metric-card metric-purple">
-
-            <div class="metric-icon">
-
-                <i class="fa-solid fa-user-clock"></i>
-
-            </div>
-
-            <div>
-
-                <span>
-                    Waiting Patients
-                </span>
-
-                <strong id="doctorWaitingCount">
-                    0
-                </strong>
-
-                <small>
-                    Checked-in queue
-                </small>
-
-            </div>
-
-        </div>
-
-
-
-        <div class="metric-card metric-blue">
-
-            <div class="metric-icon">
-
-                <i class="fa-solid fa-wand-magic-sparkles"></i>
-
-            </div>
-
-            <div>
-
-                <span>
-                    AI Summaries
-                </span>
-
-                <strong id="doctorAiCount">
-                    0
-                </strong>
-
-                <small>
-                    Pre-consultation available
-                </small>
-
-            </div>
-
-        </div>
-
-
-
-        <div class="metric-card metric-green">
-
-            <div class="metric-icon">
-
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <a href="/doctor/dashboard" class="logo">
+            <i class="fa-solid fa-heart-pulse logo-icon"></i>
+            Medi<span>Sync</span>
+        </a>
+
+        <div class="user-profile">
+            <div class="profile-icon doctor-navbar-icon">
                 <i class="fa-solid fa-user-doctor"></i>
-
             </div>
-
-            <div>
-
-                <span>
-                    Assigned Doctors
-                </span>
-
-                <strong id="doctorCount">
-                    0
-                </strong>
-
-                <small>
-                    In active queue
-                </small>
-
+            <div class="user-info">
+                <span class="user-name">{{ user.name }}</span>
+                <span class="user-role">Medical Doctor</span>
             </div>
-
-        </div>
-
-
-
-        <div class="metric-card metric-amber">
-
-            <div class="metric-icon">
-
-                <i class="fa-solid fa-circle-check"></i>
-
-            </div>
-
-            <div>
-
-                <span>
-                    Doctor Status
-                </span>
-
-                <strong class="status-text">
-                    Active
-                </strong>
-
-                <small>
-                    Consultation system online
-                </small>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-
-    <!-- CONSULTATION QUEUE -->
-
-    <section class="card dashboard-panel">
-
-
-        <div class="panel-header">
-
-            <div>
-
-                <div class="card-title">
-
-                    <i class="fa-solid fa-notes-medical"></i>
-
-                    Patients Ready for Consultation
-
-                </div>
-
-
-                <p>
-                    Patients shown below have already been checked in by hospital staff.
-                </p>
-
-            </div>
-
-
-            <span class="live-status doctor-live-status">
-
-                <span class="live-dot"></span>
-
-                Doctor Queue
-
-            </span>
-
-        </div>
-
-
-
-        <!-- TOOLBAR -->
-
-        <div class="dashboard-toolbar">
-
-
-            <div class="search-box">
-
-                <i class="fa-solid fa-magnifying-glass"></i>
-
-                <input
-                        id="doctorSearch"
-                        type="search"
-                        placeholder="Search patient, ID or doctor...">
-
-            </div>
-
-
-
-            <select
-                    id="doctorFilter"
-                    class="form-input toolbar-select">
-
-                <option value="all">
-                    All Doctors
-                </option>
-
-            </select>
-
-
-
-            <select
-                    id="doctorSort"
-                    class="form-input toolbar-select">
-
-                <option value="default">
-                    Default Order
-                </option>
-
-                <option value="name">
-                    Patient Name A-Z
-                </option>
-
-                <option value="doctor">
-                    Doctor Name A-Z
-                </option>
-
-                <option value="date">
-                    Appointment Date
-                </option>
-
-            </select>
-
-
-
-            <button
-                    class="btn btn-outline"
-                    onclick="exportDoctorCSV()">
-
-                <i class="fa-solid fa-file-csv"></i>
-
-                Export
-
+            <button class="btn btn-outline btn-sm" onclick="logoutUser()">
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
             </button>
-
-
-
-            <button
-                    class="btn btn-outline"
-                    onclick="printDoctorQueue()">
-
-                <i class="fa-solid fa-print"></i>
-
-                Print
-
-            </button>
-
         </div>
-
-
-
-        <div id="doctorMessage"
-             class="status-message">
-        </div>
-
-
-
-        <div class="table-wrapper modern-table-wrapper">
-
-
-            <table class="modern-dashboard-table doctor-table">
-
-
-                <thead>
-
-                <tr>
-
-                    <th>
-                        Patient
-                    </th>
-
-                    <th>
-                        Assigned Doctor
-                    </th>
-
-                    <th>
-                        Appointment
-                    </th>
-
-                    <th>
-                        AI Pre-Consultation
-                    </th>
-
-                    <th>
-                        Follow-Up
-                    </th>
-
-                    <th>
-                        Action
-                    </th>
-
-                </tr>
-
-                </thead>
-
-
-
-                <tbody id="doctorQueueBody">
-
-                <tr>
-
-                    <td colspan="6"
-                        class="loading-row">
-
-                        <i class="fa-solid fa-spinner fa-spin"></i>
-
-                        Loading consultation queue...
-
-                    </td>
-
-                </tr>
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </section>
-
-
-
-    <!-- AI DISCLAIMER -->
-
-    <section class="doctor-ai-notice">
-
-
-        <div>
-
-            <i class="fa-solid fa-shield-heart"></i>
-
-        </div>
-
-
-        <div>
-
-            <strong>
-                AI Consultation Support
-            </strong>
-
-            <p>
-                AI pre-consultation information is intended
-                to assist with routing and preparation only.
-                It does not provide a medical diagnosis and
-                does not replace professional medical judgement.
-            </p>
-
-        </div>
-
-    </section>
-
-
-</main>
-
-
-
-<!-- CONSULTATION MODAL -->
-
-<div id="doctorConsultationModal"
-     class="dashboard-modal">
-
-
-    <div class="dashboard-modal-card doctor-consultation-modal">
-
-
-        <div class="modal-header">
-
-
-            <div>
-
-                <span class="modal-label doctor-modal-label">
-
-                    Patient Consultation
-
-                </span>
-
-
-                <h2 id="doctorModalPatientName">
-
-                    Patient
-
-                </h2>
-
-
-                <p id="doctorModalPatientId"
-                   class="modal-subtitle">
-
-                    -
-
-                </p>
-
+    </nav>
+
+    <main class="container">
+        <!-- Floating Time Off Status Banner -->
+        <div id="timeOffStatusBanner" class="time-off-banner" style="display: none;">
+            <div class="banner-content">
+                <i id="bannerIcon" class="fa-solid fa-info-circle"></i>
+                <span id="bannerMessage">Loading your request status...</span>
             </div>
-
-
-            <button
-                    class="modal-close-button"
-                    onclick="closeDoctorModal()">
-
+            <button class="banner-close" onclick="dismissBanner()" title="Dismiss">
                 <i class="fa-solid fa-xmark"></i>
-
             </button>
-
         </div>
 
-
-
-        <div class="modal-detail-grid">
-
-
-            <div>
-
-                <span>
-                    Doctor
-                </span>
-
-                <strong id="doctorModalDoctor">
-                    -
-                </strong>
-
+        <!-- DOCTOR PROFILE -->
+        <section class="doctor-profile-panel">
+            <div class="doctor-large-icon">
+                <i class="fa-solid fa-user-doctor"></i>
             </div>
-
-
-            <div>
-
-                <span>
-                    Specialty
-                </span>
-
-                <strong id="doctorModalSpecialty">
-                    -
-                </strong>
-
+            <div class="doctor-profile-info">
+                <span>Doctor Workspace</span>
+                <h2>{{ user.name }}</h2>
+                <p>MediSync Clinical Consultation Portal</p>
             </div>
-
-
-            <div>
-
-                <span>
-                    Date
-                </span>
-
-                <strong id="doctorModalDate">
-                    -
-                </strong>
-
-            </div>
-
-
-            <div>
-
-                <span>
-                    Time
-                </span>
-
-                <strong id="doctorModalTime">
-                    -
-                </strong>
-
-            </div>
-
-        </div>
-
-
-
-        <div class="modal-section">
-
-
-            <span class="modal-section-title">
-
-                <i class="fa-solid fa-wand-magic-sparkles"></i>
-
-                AI Pre-Consultation Summary
-
+            <span class="doctor-duty-badge">
+                <span class="live-dot"></span> On Duty
             </span>
+        </section>
 
+        <!-- HERO -->
+        <section class="dashboard-hero doctor-dashboard-hero">
+            <div>
+                <span class="hero-label">
+                    <i class="fa-solid fa-stethoscope"></i> CLINICAL QUEUE
+                </span>
+                <h1>Consultation Dashboard</h1>
+                <p>Review checked-in patients, AI pre-consultation information and complete consultations.</p>
+                <span id="doctorCurrentDate" class="dashboard-date"></span>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <button class="hero-button" onclick="refreshDoctorDashboard()">
+                    <i class="fa-solid fa-rotate-right"></i>
+                    Refresh Queue
+                </button>
+                <button class="hero-button" onclick="openOffTimeRequestModal()" style="background: var(--accent-amber);">
+                    <i class="fa-solid fa-calendar-xmark"></i>
+                    Request Off Time
+                </button>
+            </div>
+        </section>
 
-            <div id="doctorModalAi"
-                 class="modal-ai-box doctor-modal-ai">
+        <!-- STATS -->
+        <section class="dashboard-metrics">
+            <div class="metric-card metric-purple">
+                <div class="metric-icon"><i class="fa-solid fa-user-clock"></i></div>
+                <div>
+                    <span>Waiting Patients</span>
+                    <strong id="doctorWaitingCount">0</strong>
+                    <small>Checked-in queue</small>
+                </div>
+            </div>
+            <div class="metric-card metric-blue">
+                <div class="metric-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <div>
+                    <span>AI Summaries</span>
+                    <strong id="doctorAiCount">0</strong>
+                    <small>Pre-consultation available</small>
+                </div>
+            </div>
+            <div class="metric-card metric-green">
+                <div class="metric-icon"><i class="fa-solid fa-user-doctor"></i></div>
+                <div>
+                    <span>Assigned Doctors</span>
+                    <strong id="doctorCount">0</strong>
+                    <small>In active queue</small>
+                </div>
+            </div>
+            <div class="metric-card metric-amber">
+                <div class="metric-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <div>
+                    <span>Doctor Status</span>
+                    <strong class="status-text">Active</strong>
+                    <small>Consultation system online</small>
+                </div>
+            </div>
+        </section>
 
-                No AI pre-consultation provided.
-
+        <!-- CONSULTATION QUEUE -->
+        <section class="card dashboard-panel">
+            <div class="panel-header">
+                <div>
+                    <div class="card-title">
+                        <i class="fa-solid fa-notes-medical"></i> Patients Ready for Consultation
+                    </div>
+                    <p>Patients shown below have already been checked in by hospital staff.</p>
+                </div>
+                <span class="live-status doctor-live-status">
+                    <span class="live-dot"></span> Doctor Queue
+                </span>
             </div>
 
+            <!-- TOOLBAR -->
+            <div class="dashboard-toolbar">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input id="doctorSearch" type="search" placeholder="Search patient, ID or doctor...">
+                </div>
+                <select id="doctorFilter" class="form-input toolbar-select">
+                    <option value="all">All Doctors</option>
+                </select>
+                <select id="doctorSort" class="form-input toolbar-select">
+                    <option value="default">Default Order</option>
+                    <option value="name">Patient Name A-Z</option>
+                    <option value="doctor">Doctor Name A-Z</option>
+                    <option value="date">Appointment Date</option>
+                </select>
+                <button class="btn btn-outline" onclick="openExportModal()">
+                    <i class="fa-solid fa-file-csv"></i> Export History
+                </button>
+                <button class="btn btn-outline" onclick="printDoctorQueue()">
+                    <i class="fa-solid fa-print"></i> Print
+                </button>
+            </div>
+
+            <div id="doctorMessage" class="status-message"></div>
+
+            <div class="table-wrapper modern-table-wrapper">
+                <table class="modern-dashboard-table doctor-table">
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Assigned Doctor</th>
+                            <th>Appointment</th>
+                            <th>AI Pre-Consultation</th>
+                            <th>Follow-Up</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="doctorQueueBody">
+                        <tr>
+                            <td colspan="6" class="loading-row">
+                                <i class="fa-solid fa-spinner fa-spin"></i> Loading consultation queue...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- AI DISCLAIMER -->
+        <section class="doctor-ai-notice">
+            <div><i class="fa-solid fa-shield-heart"></i></div>
+            <div>
+                <strong>AI Consultation Support</strong>
+                <p>AI pre-consultation information is intended to assist with routing and preparation only. It does not provide a medical diagnosis and does not replace professional medical judgement.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- CONSULTATION MODAL -->
+    <div id="doctorConsultationModal" class="dashboard-modal">
+        <div class="dashboard-modal-card doctor-consultation-modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <div>
+                    <span class="modal-label doctor-modal-label">Patient Consultation</span>
+                    <h2 id="doctorModalPatientName">Patient</h2>
+                    <p id="doctorModalPatientId" class="modal-subtitle">-</p>
+                </div>
+                <button class="modal-close-button" onclick="closeDoctorModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="modal-detail-grid">
+                <div><span>Doctor</span><strong id="doctorModalDoctor">-</strong></div>
+                <div><span>Specialty</span><strong id="doctorModalSpecialty">-</strong></div>
+                <div><span>Date</span><strong id="doctorModalDate">-</strong></div>
+                <div><span>Time</span><strong id="doctorModalTime">-</strong></div>
+            </div>
+
+            <div class="modal-section">
+                <span class="modal-section-title"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Pre-Consultation Summary</span>
+                <div id="doctorModalAi" class="modal-ai-box doctor-modal-ai">No AI pre-consultation provided.</div>
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-section-title" for="doctorModalNotes"><i class="fa-solid fa-file-medical"></i> Consultation Notes / Diagnosis</label>
+                <textarea id="doctorModalNotes" class="form-input" style="width: 100%; box-sizing: border-box; resize: none; height: 80px; padding: 0.8rem;" placeholder="Enter diagnosis, symptoms, and clinical notes here..."></textarea>
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-section-title" for="doctorModalPrescription"><i class="fa-solid fa-pills"></i> Prescription / Medicine</label>
+                <textarea id="doctorModalPrescription" class="form-input" style="width: 100%; box-sizing: border-box; resize: none; height: 80px; padding: 0.8rem;" placeholder="Enter medicine name, dosage, and instructions..."></textarea>
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-section-title" for="doctorModalFollowup"><i class="fa-solid fa-calendar-plus"></i> Follow-Up Recommendation</label>
+                <select id="doctorModalFollowup" class="form-input modal-followup">
+                    <option value="none">No Follow-Up</option>
+                    <option value="same-week">Within 7 Days</option>
+                    <option value="1-3-months">1-3 Months</option>
+                    <option value="advanced">Advanced (1 Year)</option>
+                </select>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeDoctorModal()">Close</button>
+                <button id="doctorModalCompleteButton" class="btn btn-primary">
+                    <i class="fa-solid fa-circle-check"></i> Complete Consultation
+                </button>
+            </div>
         </div>
-
-
-
-        <div class="modal-section">
-
-
-            <label
-                    class="modal-section-title"
-                    for="doctorModalFollowup">
-
-                <i class="fa-solid fa-calendar-plus"></i>
-
-                Follow-Up Recommendation
-
-            </label>
-
-
-            <select
-                    id="doctorModalFollowup"
-                    class="form-input modal-followup">
-
-                <option value="none">
-                    No Follow-Up
-                </option>
-
-                <option value="same-week">
-                    Within 7 Days
-                </option>
-
-                <option value="1-month">
-                    1 Month
-                </option>
-
-                <option value="3-months">
-                    3 Months
-                </option>
-
-                <option value="6-months">
-                    6 Months
-                </option>
-
-                <option value="1-year">
-                    1 Year
-                </option>
-
-            </select>
-
-        </div>
-
-
-
-        <div class="modal-actions">
-
-
-            <button
-                    class="btn btn-outline"
-                    onclick="closeDoctorModal()">
-
-                Close
-
-            </button>
-
-
-            <button
-                    id="doctorModalCompleteButton"
-                    class="btn btn-primary">
-
-                <i class="fa-solid fa-circle-check"></i>
-
-                Complete Consultation
-
-            </button>
-
-        </div>
-
     </div>
 
-</div>
+    <!-- Off Time Request Modal -->
+    <div id="offTimeRequestModal" class="dashboard-modal">
+        <div class="dashboard-modal-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <div>
+                    <span class="modal-label">Request Time Off</span>
+                    <h2>Unavailable Time Request</h2>
+                    <p class="modal-subtitle">Request specific dates when you'll be unavailable</p>
+                </div>
+                <button class="modal-close-button" onclick="closeOffTimeRequestModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
 
-<script src="{{ url_for('static', filename='doctor.js') }}"></script>
+            <div class="modal-section">
+                <label class="modal-section-title">
+                    <i class="fa-solid fa-calendar"></i>
+                    Select Date
+                </label>
+                <input type="date" id="offTimeDate" class="form-input" style="width: 100%;">
+            </div>
 
+            <div class="modal-section">
+                <label class="modal-section-title">
+                    <i class="fa-solid fa-comment"></i>
+                    Reason (Optional)
+                </label>
+                <textarea id="offTimeReason" class="form-input" rows="3" placeholder="Enter reason for unavailability..." style="width: 100%; resize: vertical;"></textarea>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeOffTimeRequestModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="submitOffTimeRequest()">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    Submit Request
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export History Modal -->
+    <div id="exportHistoryModal" class="dashboard-modal">
+        <div class="dashboard-modal-card" style="max-width: 450px;">
+            <div class="modal-header">
+                <div>
+                    <span class="modal-label">Data Export</span>
+                    <h2>Download Consultation History</h2>
+                    <p class="modal-subtitle">Select a date range to export records.</p>
+                </div>
+                <button class="modal-close-button" onclick="closeExportModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-section-title"><i class="fa-regular fa-calendar"></i> Start Date</label>
+                <input type="date" id="exportStartDate" class="form-input" style="width: 100%;">
+            </div>
+
+            <div class="modal-section">
+                <label class="modal-section-title"><i class="fa-regular fa-calendar-check"></i> End Date</label>
+                <input type="date" id="exportEndDate" class="form-input" style="width: 100%;">
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeExportModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="downloadHistoryCSV()">
+                    <i class="fa-solid fa-download"></i> Download CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='doctor.js') }}"></script>
 </body>
-
 </html>
