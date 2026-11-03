@@ -1,168 +1,145 @@
+from flask import Flask, request, jsonify, render_template
 import os
-import json
 import re
-import ssl
-import urllib.request
-import urllib.error
-from flask import Flask, render_template, request, jsonify
-from dotenv import load_dotenv
-
-load_dotenv(override=True)
-
-# Clear any broken system/VPN proxy variables
-for env_key in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"]:
-    os.environ.pop(env_key, None)
+from groq import Groq
 
 app = Flask(__name__)
 
-groq_key = os.getenv("GROQ_API_KEY", "").strip()
+# Initialize Groq client
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
+client = Groq(api_key=GROQ_API_KEY)
 
-# Build direct network opener that completely ignores broken system/Windows proxy settings
-ssl_context = ssl._create_unverified_context()
-direct_opener = urllib.request.build_opener(
-    urllib.request.ProxyHandler({}),
-    urllib.request.HTTPSHandler(context=ssl_context)
-)
+# Enhanced System Prompt with Kind Redirection and Post-Routing Rules
+SYSTEM_PROMPT = """You are MediSync, a kind, empathetic, and advanced hospital triage assistant. Your target hospital directory includes 22 specialized departments.
+
+CRITICAL SECURITY & CONVERSATIONAL RULES:
+1. MEDICAL ONLY: You must ONLY discuss medical symptoms, triage, and appointment booking.
+2. KIND REDIRECTION (Off-topic or Vague): If a user asks about non-medical topics, just says "hello", or provides input that doesn't describe a clear symptom, DO NOT be harsh. Gently redirect them by saying something like: "I am a medical triage assistant here to help you get the right care. Could you please tell me more details about any symptoms you are experiencing?"
+3. POST-ROUTING HANDLING: If you have already provided the department routing and the user continues to chat without mentioning new symptoms, kindly ask: "Do you have any additional symptoms you would like me to evaluate, or are you ready to proceed with your booking?"
+4. PLAIN TEXT ONLY: Do not use, call, or attempt to format your response as a tool call, function call, or JSON snippet.
+5. NO DIAGNOSES: Never diagnose a condition or name specific illnesses. Only evaluate symptom severity and route to a specialist.
+6. MAXIMUM CONCISENESS: Time is critical. Limit your text to a maximum of 2 short sentences before asking a follow-up question or outputting the final routing block. 
+
+TRIAGE THINKING PROTOCOL:
+Before writing your response, perform a hidden mental evaluation inside <thinking> tags. 
+Step A: Identify key symptoms, red flags, and note the patient's gender profile if provided.
+Step B: Determine urgency level (Emergency vs. Standard Triage).
+Step C: Evaluate user intent. Are they describing a symptom, asking an off-topic question, or continuing a finished triage?
+Step D: If Emergency -> Trigger ER Protocol immediately. 
+Step E: If Standard and needing info -> Formulate 1 or 2 gentle, discriminating questions. 
+Step F: If Patient Override triggered OR enough info exists -> Generate final routing based on your best medical estimation and output the booking details.
+
+-------------------
+FEW-SHOT EXAMPLES:
+
+Example 1 (Off-Topic / Vague):
+User: "Patient Profile: Male. What is the weather like today?"
+Assistant:
+<thinking>
+User Intent: Off-topic request.
+Action: Apply Kind Redirection protocol.
+</thinking>
+I am a medical triage assistant, so I cannot check the weather. Could you please share more details about how you are feeling or any symptoms you are experiencing today?
+
+Example 2 (Standard Triage):
+User: "Patient Profile: Female. I am experiencing symptoms in my: Abdomen"
+Assistant:
+<thinking>
+Symptoms: Abdominal pain.
+Profile: Female.
+Urgency: Medium.
+Action: Ask focused questions.
+</thinking>
+To help route you to the right specialist, please clarify:
+1. Is the pain sharp, dull, or burning?
+2. Do you have associated symptoms like a fever?
+
+Example 3 (Routing Complete):
+User: "Patient Profile: Male. my elbow hurts a lot when i bend it."
+Assistant:
+<thinking>
+Symptoms: Elbow pain on movement.
+Urgency: Low.
+Action: Route to Orthopedics.
+</thinking>
+Based on your elbow pain, I recommend you see an orthopedic specialist for a proper evaluation. 
+
+- Department: Orthopedics
+- Doctor: Dr. James Wright
+- Location: 2nd Floor, Suite 210
+- Navigation: Take the main elevator to the 2nd floor.
+[SHOW_BOOKING_BUTTON]
+-------------------
+
+Execute your response strictly following this structure.
+"""
+
+chat_history = [
+    {"role": "system", "content": SYSTEM_PROMPT}
+]
 
 
-def make_groq_request(url, payload=None):
-    headers = {
-        "Authorization": f"Bearer {groq_key}",
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0"
-    }
-    data = json.dumps(payload).encode('utf-8') if payload else None
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST" if payload else "GET")
-
-    with direct_opener.open(req, timeout=15) as response:
-        return json.loads(response.read().decode('utf-8'))
+@app.route("/")
+def index():
+    return render_template("index.html")
 
 
-# --- AUTO-DISCOVER ACTIVE MODEL FOR YOUR KEY ---
-def fetch_active_groq_model():
-    if not groq_key:
-        return "llama-3.3-70b-versatile"
+@app.route("/chat", methods=["POST"])
+def chat():
+    user_message = request.json.get("message", "").strip()
+
+    # Empty message
+    if not user_message:
+        return jsonify({
+                           "response": "It looks like your message was empty. Please take your time and tell me how you are feeling."})
+
+    # SECURITY LAYER 1: Length limit
+    if len(user_message) > 300:
+        return jsonify({
+                           'response': 'I appreciate the detail, but your message is a bit too long for me to process quickly. Could you please share a brief summary of your main symptoms?'})
+
+    # SECURITY LAYER 2: Block excessive special characters
+    symbol_count = len(re.findall(r'[^a-zA-Z0-9\s.,?+-]', user_message))
+    if symbol_count > 10:
+        return jsonify({
+                           'response': 'It looks like there might be some unusual characters in your message. Could you please try typing your symptoms again using standard text?'})
+
+    # SECURITY LAYER 3: Block command prefixes
+    forbidden_prefixes = ['/', '\\', '@', '!', 'system:', 'admin:']
+    if any(user_message.startswith(prefix) for prefix in forbidden_prefixes):
+        return jsonify({
+                           'response': 'I am just a simple medical assistant and cannot process system commands. Please just tell me how you are feeling in plain words.'})
+
+    # Add user message to history
+    chat_history.append({"role": "user", "content": user_message})
 
     try:
-        data = make_groq_request("https://api.groq.com/openai/v1/models")
-        model_ids = [m["id"] for m in data.get("data", [])]
-        print(f"📋 Active models on your account: {model_ids}")
+        chat_completion = client.chat.completions.create(
+            messages=chat_history,
+            model="openai/gpt-oss-20b",
+            temperature=0.1,
+            max_tokens=600,
+            tool_choice="none"
+        )
 
-        preferred_order = [
-            "llama-3.3-70b-versatile",
-            "openai/gpt-oss-120b",
-            "openai/gpt-oss-20b",
-            "llama-3.1-8b-instant",
-            "qwen/qwen3.8-27b"
-        ]
-        for target in preferred_order:
-            if target in model_ids:
-                return target
-        if model_ids:
-            return model_ids[0]
+        raw_response = chat_completion.choices[0].message.content or ""
+        clean_response = re.sub(r'<thinking>.*?</thinking>', '', raw_response, flags=re.DOTALL).strip()
+
+        if not clean_response:
+            clean_response = "Thank you for sharing. Could you elaborate a little more on how you are feeling so I can recommend the right specialist?"
+
+        chat_history.append({"role": "assistant", "content": clean_response})
+        return jsonify({"response": clean_response})
+
     except Exception as e:
-        print(f"⚠️ Could not fetch model list directly: {e}")
-
-    return "llama-3.3-70b-versatile"
-
-
-print("\n" + "=" * 50)
-if groq_key:
-    print(f"🔑 Key Detected: {groq_key[:8]}...{groq_key[-4:]}")
-    SELECTED_MODEL = fetch_active_groq_model()
-    print(f"🎯 Selected Model for Triage: '{SELECTED_MODEL}'")
-else:
-    print("❌ ERROR: GROQ_API_KEY is missing in .env!")
-    SELECTED_MODEL = "llama-3.3-70b-versatile"
-print("=" * 50 + "\n")
-
-REGION_MAP = {
-    "Head & Neck": "Neurology",
-    "Chest & Heart": "Cardiology",
-    "Abdomen & Digestive": "Gastroenterology",
-    "Pelvis & Groin": "Urology",
-    "Back & Spine": "Orthopedics",
-    "Arms & Hands": "Orthopedics",
-    "Legs & Feet": "Orthopedics"
-}
-
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-
-@app.route('/api/triage', methods=['POST'])
-def handle_triage():
-    try:
-        data = request.get_json() or {}
-        region = data.get('region', '')
-        tags = data.get('tags', [])
-        notes = data.get('notes', '').strip()
-
-        if not region:
-            return jsonify({"error": "Body region selection is required."}), 400
-
-        symptom_summary = f"Region: {region} | Tags: {', '.join(tags) if tags else 'None'} | Notes: {notes if notes else 'None'}"
-
-        SYSTEM_PROMPT = """You are MediSync's Smart Triage AI. Map structured patient inputs to exact specialties (Orthopedics, Cardiology, Gastroenterology, Neurology, Dermatology, Urology, Endocrinology, General Practice).
-Return ONLY a valid JSON object with keys: "recommended_department", "explanation", "disclaimer".
-Do NOT output any markdown code blocks or backticks.
-Example output format: {"recommended_department": "Neurology", "explanation": "Dizziness and neck stiffness require neurological evaluation.", "disclaimer": "Automated triage guidance only."}"""
-
-        payload = {
-            "model": SELECTED_MODEL,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": symptom_summary}
-            ],
-            "temperature": 0.1
-        }
-
-        try:
-            res_body = make_groq_request("https://api.groq.com/openai/v1/chat/completions", payload=payload)
-            raw_text = res_body["choices"][0]["message"]["content"].strip()
-
-            if raw_text.startswith("```"):
-                raw_text = re.sub(r"^```[a-zA-Z]*\n?", "", raw_text)
-                raw_text = re.sub(r"\n?```$", "", raw_text).strip()
-
-            print(f"✅ Live AI Triage Successful using '{SELECTED_MODEL}'!")
-            return jsonify(json.loads(raw_text)), 200
-
-        except urllib.error.HTTPError as http_err:
-            error_body = http_err.read().decode('utf-8')
-            print(
-                f"\n--- GROQ API ERROR ({http_err.code}) ---\nResponse: {error_body}\n-----------------------------------\n")
-
-        except Exception as api_err:
-            print(f"\n--- CONNECTION ERROR ---\n{api_err}\n------------------------\n")
-
-        # Offline Fallback Logic
-        dept = REGION_MAP.get(region, "General Practice")
-        lower_notes = notes.lower()
-
-        if "diabetes" in lower_notes or "sugar" in lower_notes:
-            dept = "Endocrinology"
-        elif "skin" in lower_notes or "rash" in lower_notes:
-            dept = "Dermatology"
-
-        tag_str = ", ".join(tags) if tags else "selected concerns"
-
-        if notes:
-            explanation = f"While analyzing your selection of {region} ({tag_str}), we noted your specific concerns regarding '{notes}'. You have been routed to {dept} for specialized evaluation."
-        else:
-            explanation = f"Based on your primary symptoms in the {region} area ({tag_str}), you have been routed to the {dept} department."
+        print("\n=== GROQ API ERROR ===")
+        print(str(e))
+        print("======================\n")
 
         return jsonify({
-            "recommended_department": dept,
-            "explanation": explanation,
-            "disclaimer": "This is non-diagnostic automated triage for guidance only (Offline Fallback)."
-        }), 200
-
-    except Exception as e:
-        return jsonify({"error": f"Server processing error: {str(e)}"}), 500
+            "response": "I am so sorry, but I encountered a small technical hiccup while trying to evaluate your symptoms. Could you please try sending your message again?"
+        })
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True, port=5000)
