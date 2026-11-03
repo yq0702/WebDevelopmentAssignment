@@ -222,11 +222,24 @@ def get_available_slots():
 @role_required(['patient'])
 def book_slot():
     data = request.json
-    mongo.db.slots.update_one({"_id": ObjectId(data['slot_id'])}, {"$set": {"status": "booked"}})
+    slot_id = ObjectId(data['slot_id'])
+
+    slot = mongo.db.slots.find_one({"_id": slot_id})
+    if not slot or slot.get('status') != 'available':
+        return jsonify({"success": False, "message": "This time slot is no longer available."}), 400
+
+    updated_slot = mongo.db.slots.find_one_and_update(
+        {"_id": slot_id, "status": "available"},
+        {"$set": {"status": "booked"}}
+    )
+
+    if not updated_slot:
+        return jsonify({"success": False, "message": "Slot was just booked by someone else."}), 400
+
     mongo.db.appointments.insert_one({
         "patient_id": session['user']['patient_id'],
         "patient_name": session['user']['name'],
-        "slot_id": ObjectId(data['slot_id']),
+        "slot_id": slot_id,
         "status": "booked",
         "ai_summary": data.get('ai_summary', 'N/A'),
         "follow_up": "none",
@@ -597,6 +610,25 @@ def get_my_unavailable_times():
 
     return jsonify(requests)
 
+
+@app.route('/api/doctor/appointments', methods=['GET'])
+@login_required
+@role_required(['doctor'])
+def get_doctor_all_appointments():
+    current_doctor_id = session['user'].get('doctor_id')
+    if not current_doctor_id:
+        return jsonify([])
+
+    appointments = list(mongo.db.appointments.aggregate([
+        {"$lookup": {"from": "slots", "localField": "slot_id", "foreignField": "_id", "as": "slot_info"}},
+        {"$unwind": {"path": "$slot_info", "preserveNullAndEmptyArrays": True}},
+        {"$match": {"slot_info.doctor_id": ObjectId(current_doctor_id)}},
+        {"$lookup": {"from": "doctors", "localField": "slot_info.doctor_id", "foreignField": "_id",
+                     "as": "doctor_info"}},
+        {"$unwind": {"path": "$doctor_info", "preserveNullAndEmptyArrays": True}},
+        {"$sort": {"slot_info.date": 1, "slot_info.time": 1}}
+    ]))
+    return jsonify(appointments)
 
 # ================= 9. Admin API =================
 @app.route('/api/admin/stats', methods=['GET'])
