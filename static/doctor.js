@@ -1,7 +1,18 @@
+// ======================================================
+// GLOBAL VARIABLES
+// ======================================================
 let doctorAppointments = [];
 let visibleDoctorAppointments = [];
 let selectedDoctorAppointment = null;
 
+// 新增：支持多视图管理的变量
+let currentDoctorView = 'today';
+let allAppointments = [];
+let historyAppointments = [];
+
+// ======================================================
+// INITIALIZATION
+// ======================================================
 document.addEventListener("DOMContentLoaded", function () {
     showDoctorDate();
     document.getElementById("doctorSearch").addEventListener("input", renderDoctorQueue);
@@ -10,51 +21,217 @@ document.addEventListener("DOMContentLoaded", function () {
     refreshDoctorDashboard();
 });
 
+// ======================================================
+// DATA LOADING
+// ======================================================
 async function refreshDoctorDashboard() {
-    await loadDoctorQueue();
+    await loadAllAppointments(); // 使用全量加载以支持 Tabs 视图
     await loadTimeOffStatus();
 }
 
+// 保留原函数名以保持向后兼容（例如 completeAppointmentRequest 中的调用）
 async function loadDoctorQueue() {
+    await loadAllAppointments();
+}
+
+async function loadAllAppointments() {
     const body = document.getElementById("doctorQueueBody");
-    body.innerHTML = `<tr><td colspan="6" class="loading-row"><i class="fa-solid fa-spinner fa-spin"></i> Loading consultation queue...</td></tr>`;
+    body.innerHTML = `<tr><td colspan="6" class="loading-row"><i class="fa-solid fa-spinner fa-spin"></i> Loading appointments...</td></tr>`;
 
     try {
-        const response = await fetch("/api/doctor/queue");
+        // 调用后端全量接口
+        const response = await fetch("/api/doctor/appointments");
         if (response.status === 401 || response.status === 403) {
             window.location.href = "/staff/auth";
             return;
         }
-        if (!response.ok) throw new Error("Unable to load doctor queue.");
+        if (!response.ok) throw new Error("Unable to load appointments.");
 
-        doctorAppointments = await response.json();
+        allAppointments = await response.json();
+        categorizeAppointments();
         populateDoctorFilter();
         updateDoctorStatistics();
         renderDoctorQueue();
     } catch (error) {
         console.error(error);
+        allAppointments = [];
         doctorAppointments = [];
-        body.innerHTML = `<tr><td colspan="6" class="empty-state error-text"><i class="fa-solid fa-triangle-exclamation"></i><strong>Unable to load consultation queue.</strong><span>Please check that Flask and MongoDB are running.</span></td></tr>`;
+        historyAppointments = [];
+        body.innerHTML = `<tr><td colspan="6" class="empty-state error-text"><i class="fa-solid fa-triangle-exclamation"></i><strong>Unable to load appointments.</strong><span>Please check that Flask and MongoDB are running.</span></td></tr>`;
     }
 }
 
+function categorizeAppointments() {
+    const today = new Date().toISOString().split('T')[0];
+
+    // Today's appointments (not completed)
+    doctorAppointments = allAppointments.filter(appt => {
+        const slot = appt.slot_info || {};
+        const apptDate = slot.date || '';
+        const status = appt.status || '';
+        return apptDate === today && status !== 'completed';
+    });
+
+    // History appointments
+    historyAppointments = allAppointments.filter(appt => {
+        const status = appt.status || '';
+        return status === 'completed';
+    });
+
+    // Update tab badge counts
+    const todayCount = doctorAppointments.length;
+    const upcomingCount = allAppointments.filter(appt => {
+        const slot = appt.slot_info || {};
+        const apptDate = slot.date || '';
+        return apptDate > today && appt.status !== 'completed';
+    }).length;
+    const historyCount = historyAppointments.length;
+
+    // 安全更新 DOM (如果元素存在)
+    const todayEl = document.getElementById('todayCount');
+    const upcomingEl = document.getElementById('upcomingCount');
+    const historyEl = document.getElementById('historyCount');
+    
+    if (todayEl) todayEl.textContent = todayCount;
+    if (upcomingEl) upcomingEl.textContent = upcomingCount;
+    if (historyEl) historyEl.textContent = historyCount;
+}
+
+// ======================================================
+// VIEW MANAGEMENT & RENDERING
+// ======================================================
+function switchDoctorView(view) {
+    currentDoctorView = view;
+
+    // Update tab buttons UI
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    const activeTab = document.getElementById(`tab-${view}`);
+    if (activeTab) activeTab.classList.add('active');
+
+    // Update table header based on view
+    const headers = {
+        'today': 'Patients Ready for Consultation',
+        'upcoming': 'Upcoming Appointments',
+        'history': 'Consultation History'
+    };
+
+    const title = document.querySelector('.card-title');
+    if (title) {
+        title.innerHTML = `<i class="fa-solid fa-notes-medical"></i> ${headers[view]}`;
+    }
+
+    renderDoctorQueue();
+}
+
+function renderDoctorQueue() {
+    const body = document.getElementById("doctorQueueBody");
+    const search = document.getElementById("doctorSearch").value.trim().toLowerCase();
+    const doctorFilter = document.getElementById("doctorFilter").value;
+    const sort = document.getElementById("doctorSort").value;
+
+    // Select data based on current view
+    let dataToRender = [];
+    if (currentDoctorView === 'history') {
+        dataToRender = [...historyAppointments];
+    } else if (currentDoctorView === 'upcoming') {
+        const today = new Date().toISOString().split('T')[0];
+        dataToRender = allAppointments.filter(appt => {
+            const slot = appt.slot_info || {};
+            return slot.date > today && appt.status !== 'completed';
+        });
+    } else {
+        dataToRender = [...doctorAppointments];
+    }
+
+    // Apply filters
+    visibleDoctorAppointments = dataToRender.filter(function (appointment) {
+        const doctor = appointment.doctor_info || {};
+        const text = `${appointment.patient_name || ""} ${appointment.patient_id || ""} ${doctor.name || ""} ${doctor.specialty || ""}`.toLowerCase();
+        return (!search || text.includes(search)) && (doctorFilter === "all" || doctor.name === doctorFilter);
+    });
+
+    // Apply sorting
+    if (sort === "name") visibleDoctorAppointments.sort((a, b) => String(a.patient_name || "").localeCompare(String(b.patient_name || "")));
+    if (sort === "doctor") visibleDoctorAppointments.sort((a, b) => String(a.doctor_info?.name || "").localeCompare(String(b.doctor_info?.name || "")));
+    if (sort === "date") visibleDoctorAppointments.sort((a, b) => getAppointmentSortValue(a).localeCompare(getAppointmentSortValue(b)));
+
+    // Render empty state or table
+    if (visibleDoctorAppointments.length === 0) {
+        const messages = {
+            'today': 'No patients checked in for today.',
+            'upcoming': 'No upcoming appointments.',
+            'history': 'No completed consultations found.'
+        };
+        body.innerHTML = `<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-check"></i><strong>${messages[currentDoctorView] || 'No matching patients.'}</strong><span>Check back later for updates.</span></td></tr>`;
+        return;
+    }
+
+    body.innerHTML = visibleDoctorAppointments.map(function (appointment) {
+        const slot = appointment.slot_info || {};
+        const doctor = appointment.doctor_info || {};
+        const aiSummary = hasAISummary(appointment) ? appointment.ai_summary : "No AI pre-consultation provided";
+        const isHistoryView = currentDoctorView === 'history' || appointment.status === 'completed';
+
+        // Different actions based on view (防止历史记录被重复点击 Complete)
+        let actionsHtml = '';
+        if (isHistoryView) {
+            actionsHtml = `<span class="status-badge" style="background:#dcfce7; color:#166534; padding:4px 8px; border-radius:6px; font-size:0.8rem;"><i class="fa-solid fa-circle-check"></i> Completed</span>`;
+        } else {
+            actionsHtml = `
+                <div class="table-actions">
+                    <button class="btn btn-primary btn-sm" onclick="completeConsultation('${appointment._id}', this)"><i class="fa-solid fa-circle-check"></i> Complete</button>
+                    <button class="table-icon-button doctor-view-button" onclick="openDoctorModal('${appointment._id}')" title="Open Consultation"><i class="fa-solid fa-notes-medical"></i></button>
+                </div>
+            `;
+        }
+
+        return `
+            <tr>
+                <td>
+                    <button class="patient-name-button" onclick="openDoctorModal('${appointment._id}')">
+                        <span class="patient-avatar doctor-patient-avatar">${getInitials(appointment.patient_name || "Patient")}</span>
+                        <span><strong>${escapeHTML(appointment.patient_name || "Patient")}</strong><small>${escapeHTML(appointment.patient_id || "N/A")}</small></span>
+                    </button>
+                </td>
+                <td><strong>${escapeHTML(doctor.name || "Doctor")}</strong><small class="table-secondary-text">${escapeHTML(doctor.specialty || "General Medicine")}</small></td>
+                <td><strong>${escapeHTML(slot.date || "N/A")}</strong><small class="table-secondary-text">${escapeHTML(slot.time || "N/A")}</small></td>
+                <td><div class="ai-summary-box doctor-ai-summary"><i class="fa-solid fa-wand-magic-sparkles"></i><span>${escapeHTML(aiSummary)}</span></div></td>
+                <td><select id="followup-${appointment._id}" class="form-input table-followup" ${isHistoryView ? 'disabled' : ''}>${followUpOptions(appointment.follow_up || "none")}</select></td>
+                <td>${actionsHtml}</td>
+            </tr>
+        `;
+    }).join("");
+}
+
+// ======================================================
+// STATISTICS & FILTERS
+// ======================================================
 function updateDoctorStatistics() {
-    const aiCount = doctorAppointments.filter(hasAISummary).length;
+    const aiCount = allAppointments.filter(hasAISummary).length;
     const doctors = new Set();
-    doctorAppointments.forEach(function (appointment) {
+    allAppointments.forEach(function (appointment) {
         const doctor = appointment.doctor_info || {};
         if (doctor.name) doctors.add(doctor.name);
     });
-    document.getElementById("doctorWaitingCount").textContent = doctorAppointments.length;
+    
+    // 统计今日等待人数
+    const today = new Date().toISOString().split('T')[0];
+    const waitingToday = allAppointments.filter(appt => {
+        const slot = appt.slot_info || {};
+        return slot.date === today && appt.status !== 'completed';
+    }).length;
+
+    document.getElementById("doctorWaitingCount").textContent = waitingToday;
     document.getElementById("doctorAiCount").textContent = aiCount;
     document.getElementById("doctorCount").textContent = doctors.size;
 }
 
 function populateDoctorFilter() {
     const select = document.getElementById("doctorFilter");
+    if (!select) return;
     const current = select.value;
     const doctors = new Set();
-    doctorAppointments.forEach(function (appointment) {
+    allAppointments.forEach(function (appointment) {
         const doctor = appointment.doctor_info || {};
         if (doctor.name) doctors.add(doctor.name);
     });
@@ -70,60 +247,12 @@ function populateDoctorFilter() {
     }
 }
 
-function renderDoctorQueue() {
-    const body = document.getElementById("doctorQueueBody");
-    const search = document.getElementById("doctorSearch").value.trim().toLowerCase();
-    const doctorFilter = document.getElementById("doctorFilter").value;
-    const sort = document.getElementById("doctorSort").value;
-
-    visibleDoctorAppointments = doctorAppointments.filter(function (appointment) {
-        const doctor = appointment.doctor_info || {};
-        const text = `${appointment.patient_name || ""} ${appointment.patient_id || ""} ${doctor.name || ""} ${doctor.specialty || ""}`.toLowerCase();
-        return (!search || text.includes(search)) && (doctorFilter === "all" || doctor.name === doctorFilter);
-    });
-
-    if (sort === "name") visibleDoctorAppointments.sort((a, b) => String(a.patient_name || "").localeCompare(String(b.patient_name || "")));
-    if (sort === "doctor") visibleDoctorAppointments.sort((a, b) => String(a.doctor_info?.name || "").localeCompare(String(b.doctor_info?.name || "")));
-    if (sort === "date") visibleDoctorAppointments.sort((a, b) => getAppointmentSortValue(a).localeCompare(getAppointmentSortValue(b)));
-
-    if (visibleDoctorAppointments.length === 0) {
-        body.innerHTML = `<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-check"></i><strong>No matching patients.</strong><span>Checked-in patients will appear here.</span></td></tr>`;
-        return;
-    }
-
-    body.innerHTML = visibleDoctorAppointments.map(function (appointment) {
-        const slot = appointment.slot_info || {};
-        const doctor = appointment.doctor_info || {};
-        const aiSummary = hasAISummary(appointment) ? appointment.ai_summary : "No AI pre-consultation provided";
-
-        return `
-            <tr>
-                <td>
-                    <button class="patient-name-button" onclick="openDoctorModal('${appointment._id}')">
-                        <span class="patient-avatar doctor-patient-avatar">${getInitials(appointment.patient_name || "Patient")}</span>
-                        <span><strong>${escapeHTML(appointment.patient_name || "Patient")}</strong><small>${escapeHTML(appointment.patient_id || "N/A")}</small></span>
-                    </button>
-                </td>
-                <td><strong>${escapeHTML(doctor.name || "Doctor")}</strong><small class="table-secondary-text">${escapeHTML(doctor.specialty || "General Medicine")}</small></td>
-                <td><strong>${escapeHTML(slot.date || "N/A")}</strong><small class="table-secondary-text">${escapeHTML(slot.time || "N/A")}</small></td>
-                <td><div class="ai-summary-box doctor-ai-summary"><i class="fa-solid fa-wand-magic-sparkles"></i><span>${escapeHTML(aiSummary)}</span></div></td>
-                <td><select id="followup-${appointment._id}" class="form-input table-followup">${followUpOptions(appointment.follow_up || "none")}</select></td>
-                <td>
-                    <div class="table-actions">
-                        <button class="btn btn-primary btn-sm" onclick="completeConsultation('${appointment._id}', this)"><i class="fa-solid fa-circle-check"></i> Complete</button>
-                        <button class="table-icon-button doctor-view-button" onclick="openDoctorModal('${appointment._id}')" title="Open Consultation"><i class="fa-solid fa-notes-medical"></i></button>
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join("");
-}
-
 // ======================================================
 // CONSULTATION MODAL
 // ======================================================
 function openDoctorModal(appointmentId) {
-    selectedDoctorAppointment = doctorAppointments.find(function (appointment) {
+    // 修复：从 allAppointments 中查找，确保在 History 视图中也能打开弹窗查看详情
+    selectedDoctorAppointment = allAppointments.find(function (appointment) {
         return String(appointment._id) === String(appointmentId);
     });
 
@@ -145,16 +274,28 @@ function openDoctorModal(appointmentId) {
 
     const notesInput = document.getElementById("doctorModalNotes");
     const prescriptionInput = document.getElementById("doctorModalPrescription");
-    if (notesInput) notesInput.value = "";
-    if (prescriptionInput) prescriptionInput.value = "";
+    if (notesInput) notesInput.value = selectedDoctorAppointment.consultation_notes || "";
+    if (prescriptionInput) prescriptionInput.value = selectedDoctorAppointment.prescription || "";
 
     const completeBtn = document.getElementById("doctorModalCompleteButton");
     completeBtn.dataset.apptId = appointmentId;
-    completeBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Complete Consultation';
-    completeBtn.disabled = false;
-    completeBtn.onclick = function () {
-        completeConsultationFromModal();
-    };
+
+    // 【关键修复】防止已完成的预约在弹窗中被重复点击 Complete
+    if (selectedDoctorAppointment.status === 'completed') {
+        completeBtn.disabled = true;
+        completeBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Already Completed';
+        completeBtn.style.opacity = '0.6';
+        completeBtn.style.cursor = 'not-allowed';
+        completeBtn.onclick = null;
+    } else {
+        completeBtn.disabled = false;
+        completeBtn.style.opacity = '1';
+        completeBtn.style.cursor = 'pointer';
+        completeBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Complete Consultation';
+        completeBtn.onclick = function () {
+            completeConsultationFromModal();
+        };
+    }
 
     document.getElementById("doctorConsultationModal").classList.add("active");
 }
@@ -211,7 +352,7 @@ async function completeAppointmentRequest(appointmentId, horizon, button, notes 
 
         closeDoctorModal();
         showDoctorMessage("Consultation completed successfully.", "success");
-        await loadDoctorQueue();
+        await loadAllAppointments(); // 刷新全量数据以更新视图和计数
 
     } catch (error) {
         console.error(error);
@@ -242,14 +383,23 @@ function getAppointmentSortValue(appointment) {
 }
 
 function showDoctorDate() {
-    document.getElementById("doctorCurrentDate").textContent = new Date().toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    const dateEl = document.getElementById("doctorCurrentDate");
+    if (dateEl) {
+        dateEl.textContent = new Date().toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    }
 }
 
 function showDoctorMessage(message, type) {
     const box = document.getElementById("doctorMessage");
+    if (!box) return;
     box.textContent = message;
     box.className = `status-message ${type}`;
-    setTimeout(function () { box.textContent = ""; box.className = "status-message"; }, 3500);
+    setTimeout(function () { 
+        if (box) {
+            box.textContent = ""; 
+            box.className = "status-message"; 
+        }
+    }, 3500);
 }
 
 async function logoutUser() {
@@ -267,8 +417,9 @@ function escapeHTML(value) {
     return div.innerHTML;
 }
 
-// ================= 🌟 Export History Logic =================
-
+// ======================================================
+// EXPORT HISTORY LOGIC
+// ======================================================
 function openExportModal() {
     const today = new Date();
     const lastMonth = new Date();
@@ -356,9 +507,13 @@ function downloadCSV(rows, filename) {
     URL.revokeObjectURL(link.href);
 }
 
-function printDoctorQueue() { window.print(); }
+function printDoctorQueue() { 
+    window.print(); 
+}
 
-// ================= Off Time Request Functions =================
+// ======================================================
+// OFF TIME REQUEST FUNCTIONS
+// ======================================================
 function openOffTimeRequestModal() {
     document.getElementById('offTimeDate').value = '';
     document.getElementById('offTimeReason').value = '';
@@ -395,6 +550,7 @@ async function submitOffTimeRequest() {
         if (result.success) {
             alert('Off time request submitted successfully!');
             closeOffTimeRequestModal();
+            loadTimeOffStatus(); // 刷新状态
         } else {
             alert('Failed to submit request: ' + result.message);
         }
@@ -404,8 +560,9 @@ async function submitOffTimeRequest() {
     }
 }
 
-// ================= 🌟 Time Off Status Banner Logic =================
-
+// ======================================================
+// TIME OFF STATUS BANNER LOGIC
+// ======================================================
 async function loadTimeOffStatus() {
     try {
         const response = await fetch('/api/doctor/unavailable_times/my_requests');
@@ -449,12 +606,3 @@ async function loadTimeOffStatus() {
 function dismissBanner() {
     document.getElementById('timeOffStatusBanner').style.display = 'none';
 }
-
-document.addEventListener('DOMContentLoaded', function () {
-    showDoctorDate();
-    document.getElementById("doctorSearch").addEventListener("input", renderDoctorQueue);
-    document.getElementById("doctorFilter").addEventListener("change", renderDoctorQueue);
-    document.getElementById("doctorSort").addEventListener("change", renderDoctorQueue);
-
-    refreshDoctorDashboard(); 
-});
