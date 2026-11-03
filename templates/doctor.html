@@ -9,6 +9,53 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+    <style>
+        /* Dashboard Tabs Styling */
+        .dashboard-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border-color, #e2e8f0);
+            padding-bottom: 0;
+        }
+
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-secondary, #f8fafc);
+            border: none;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-secondary, #64748b);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .tab-button:hover {
+            color: var(--primary, #3b82f6);
+            background: #eff6ff;
+        }
+
+        .tab-button.active {
+            color: var(--primary, #3b82f6);
+            border-bottom-color: var(--primary, #3b82f6);
+            background: transparent;
+        }
+
+        .tab-badge {
+            background: var(--primary, #3b82f6);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+    </style>
 </head>
 
 <body class="doctor-page">
@@ -117,6 +164,25 @@
                     <small>Consultation system online</small>
                 </div>
             </div>
+        </section>
+
+        <!-- VIEW TABS -->
+        <section class="dashboard-tabs">
+            <button class="tab-button active" onclick="switchDoctorView('today')" id="tab-today">
+                <i class="fa-solid fa-calendar-day"></i>
+                Today's Appointments
+                <span class="tab-badge" id="todayCount">0</span>
+            </button>
+            <button class="tab-button" onclick="switchDoctorView('upcoming')" id="tab-upcoming">
+                <i class="fa-solid fa-calendar-check"></i>
+                Upcoming
+                <span class="tab-badge" id="upcomingCount">0</span>
+            </button>
+            <button class="tab-button" onclick="switchDoctorView('history')" id="tab-history">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                Consultation History
+                <span class="tab-badge" id="historyCount">0</span>
+            </button>
         </section>
 
         <!-- CONSULTATION QUEUE -->
