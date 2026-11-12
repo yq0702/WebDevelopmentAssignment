@@ -12,12 +12,84 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+# ================= 🌟 新增: AI Triage 依赖导入 =================
+import os
+from groq import Groq
+
 # ================= 1. Init Flask & MongoDB =================
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = "medisync_super_secret_key_2024"
 app.config["MONGO_URI"] = "mongodb://localhost:27017/medisync_db"
 mongo = PyMongo(app)
 CORS(app)
+
+# ================= 🌟 新增: 初始化 Groq 客户端与 System Prompt =================
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
+groq_client = Groq(api_key=GROQ_API_KEY)
+
+SYSTEM_PROMPT = """You are MediSync, a kind, empathetic, and advanced hospital triage assistant. Your target hospital directory includes 22 specialized departments.
+
+CRITICAL SECURITY & CONVERSATIONAL RULES:
+1. MEDICAL ONLY: You must ONLY discuss medical symptoms, triage, and appointment booking.
+2. KIND REDIRECTION (Off-topic or Vague): If a user asks about non-medical topics, just says "hello", or provides input that doesn't describe a clear symptom, DO NOT be harsh. Gently redirect them by saying something like: "I am a medical triage assistant here to help you get the right care. Could you please tell me more details about any symptoms you are experiencing?"
+3. POST-ROUTING HANDLING: If you have already provided the department routing and the user continues to chat without mentioning new symptoms, kindly ask: "Do you have any additional symptoms you would like me to evaluate, or are you ready to proceed with your booking?"
+4. PLAIN TEXT ONLY: Do not use, call, or attempt to format your response as a tool call, function call, or JSON snippet.
+5. NO DIAGNOSES: Never diagnose a condition or name specific illnesses. Only evaluate symptom severity and route to a specialist.
+6. MAXIMUM CONCISENESS: Time is critical. Limit your text to a maximum of 2 short sentences before asking a follow-up question or outputting the final routing block. 
+
+TRIAGE THINKING PROTOCOL:
+Before writing your response, perform a hidden mental evaluation inside <thinking> tags. 
+Step A: Identify key symptoms, red flags, and note the patient's gender profile if provided.
+Step B: Determine urgency level (Emergency vs. Standard Triage).
+Step C: Evaluate user intent. Are they describing a symptom, asking an off-topic question, or continuing a finished triage?
+Step D: If Emergency -> Trigger ER Protocol immediately. 
+Step E: If Standard and needing info -> Formulate 1 or 2 gentle, discriminating questions. 
+Step F: If Patient Override triggered OR enough info exists -> Generate final routing based on your best medical estimation and output the booking details.
+
+-------------------
+FEW-SHOT EXAMPLES:
+
+Example 1 (Off-Topic / Vague):
+User: "Patient Profile: Male. What is the weather like today?"
+Assistant:
+<thinking>
+User Intent: Off-topic request.
+Action: Apply Kind Redirection protocol.
+</thinking>
+I am a medical triage assistant, so I cannot check the weather. Could you please share more details about how you are feeling or any symptoms you are experiencing today?
+
+Example 2 (Standard Triage):
+User: "Patient Profile: Female. I am experiencing symptoms in my: Abdomen"
+Assistant:
+<thinking>
+Symptoms: Abdominal pain.
+Profile: Female.
+Urgency: Medium.
+Action: Ask focused questions.
+</thinking>
+To help route you to the right specialist, please clarify:
+1. Is the pain sharp, dull, or burning?
+2. Do you have associated symptoms like a fever?
+
+Example 3 (Routing Complete):
+User: "Patient Profile: Male. my elbow hurts a lot when i bend it."
+Assistant:
+<thinking>
+Symptoms: Elbow pain on movement.
+Urgency: Low.
+Action: Route to Orthopedics.
+</thinking>
+Based on your elbow pain, I recommend you see an orthopedic specialist for a proper evaluation. 
+
+- Department: Orthopedics
+- Doctor: Dr. James Wright
+- Location: 2nd Floor, Suite 210
+- Navigation: Take the main elevator to the 2nd floor.
+[SHOW_BOOKING_BUTTON]
+-------------------
+
+Execute your response strictly following this structure.
+"""
 
 
 class MongoJSONProvider(DefaultJSONProvider):
@@ -30,6 +102,7 @@ class MongoJSONProvider(DefaultJSONProvider):
 
 app.json = MongoJSONProvider(app)
 
+
 @app.after_request
 def add_header(response):
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
@@ -39,6 +112,7 @@ def add_header(response):
 
 
 def parse_json(data): return loads(dumps(data))
+
 
 def login_required(f):
     @wraps(f)
@@ -275,6 +349,84 @@ def cancel_appointment(appt_id):
     return jsonify({"success": True})
 
 
+# ================= 🌟 新增: Advanced AI Triage Chat API =================
+@app.route('/api/patient/ai_chat', methods=['POST'])
+@login_required
+@role_required(['patient'])
+def patient_ai_chat():
+    data = request.json
+    user_message = data.get("message", "").strip()
+
+    # 安全检查 1: 空消息
+    if not user_message:
+        return jsonify({
+                           "response": "It looks like your message was empty. Please take your time and tell me how you are feeling."})
+
+    # 安全检查 2: 长度限制
+    if len(user_message) > 300:
+        return jsonify({
+                           "response": "I appreciate the detail, but your message is a bit too long for me to process quickly. Could you please share a brief summary of your main symptoms?"})
+
+    # 安全检查 3: 阻止过多特殊字符
+    symbol_count = len(re.findall(r'[^a-zA-Z0-9\s.,?+-]', user_message))
+    if symbol_count > 10:
+        return jsonify({
+                           "response": "It looks like there might be some unusual characters in your message. Could you please try typing your symptoms again using standard text?"})
+
+    # 安全检查 4: 阻止命令前缀
+    forbidden_prefixes = ['/', '\\', '@', '!', 'system:', 'admin:']
+    if any(user_message.startswith(prefix) for prefix in forbidden_prefixes):
+        return jsonify({
+                           "response": "I am just a simple medical assistant and cannot process system commands. Please just tell me how you are feeling in plain words."})
+
+    # 🌟 关键修复：使用 session 隔离每个用户的聊天历史，防止多用户串线
+    if 'triage_history' not in session:
+        session['triage_history'] = [
+            {"role": "system",
+             "content": SYSTEM_PROMPT + f"\nCurrent Patient Profile: {session['user'].get('name', 'Patient')}."}
+        ]
+
+    session['triage_history'].append({"role": "user", "content": user_message})
+
+    try:
+        # 🌟 修正模型名称为 Groq 实际支持的模型
+        chat_completion = groq_client.chat.completions.create(
+            messages=session['triage_history'],
+            model="openai/gpt-oss-20b",
+            temperature=0.1,
+            max_tokens=600
+        )
+
+        raw_response = chat_completion.choices[0].message.content or ""
+        # 移除 AI 思考过程标签 
+        clean_response = re.sub(r'<thinking>.*?</thinking>', '', raw_response, flags=re.DOTALL).strip()
+
+        if not clean_response:
+            clean_response = "Thank you for sharing. Could you elaborate a little more on how you are feeling so I can recommend the right specialist?"
+
+        session['triage_history'].append({"role": "assistant", "content": clean_response})
+
+        # 防止 session 过大，保留 system prompt 和最近 10 轮对话
+        if len(session['triage_history']) > 22:
+            session['triage_history'] = [session['triage_history'][0]] + session['triage_history'][-10:]
+
+        return jsonify({"response": clean_response})
+
+    except Exception as e:
+        print("\n=== GROQ API ERROR ===\n", str(e), "\n======================\n")
+        return jsonify({
+                           "response": "I am so sorry, but I encountered a small technical hiccup while trying to evaluate your symptoms. Could you please try sending your message again?"})
+
+
+@app.route('/api/patient/ai_chat/reset', methods=['POST'])
+@login_required
+@role_required(['patient'])
+def reset_ai_chat():
+    # 清空当前用户的聊天历史
+    session.pop('triage_history', None)
+    return jsonify({"success": True})
+
+
 @app.route('/api/patient/ai_triage', methods=['POST'])
 @login_required
 @role_required(['patient'])
@@ -304,6 +456,7 @@ def patient_profile():
         mongo.db.users.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
         session['user']['name'] = update_data.get('name', session['user']['name'])
         return jsonify({"success": True, "message": "Profile updated!"})
+
 
 @app.route('/api/patient/send_reminder/<appt_id>', methods=['POST'])
 @login_required
@@ -343,22 +496,6 @@ MediSync Health Team
 """
 
     try:
-        # sender_email = "your_email@gmail.com"
-        # sender_password = "your_app_password" # Gmail 请使用应用专用密码
-        #
-        # msg = MIMEMultipart()
-        # msg['From'] = sender_email
-        # msg['To'] = patient_email
-        # msg['Subject'] = subject
-        # msg.attach(MIMEText(body, 'plain'))
-        #
-        # server = smtplib.SMTP('smtp.gmail.com', 587)
-        # server.starttls()
-        # server.login(sender_email, sender_password)
-        # server.send_message(msg)
-        # server.quit()
-        # ==========================================
-
         print(f"📧 [SIMULATED] Reminder email sent to {patient_email} for appointment on {date_str}")
         return jsonify({"success": True, "message": "Reminder email sent successfully!"})
 
@@ -391,10 +528,12 @@ def get_staff_queue():
         {"$match": {"status": {"$in": ["booked", "checked-in", "completed"]}}},
         {"$lookup": {"from": "slots", "localField": "slot_id", "foreignField": "_id", "as": "slot_info"}},
         {"$unwind": "$slot_info"},
-        {"$lookup": {"from": "doctors", "localField": "slot_info.doctor_id", "foreignField": "_id", "as": "doctor_info"}},
+        {"$lookup": {"from": "doctors", "localField": "slot_info.doctor_id", "foreignField": "_id",
+                     "as": "doctor_info"}},
         {"$unwind": {"path": "$doctor_info", "preserveNullAndEmptyArrays": True}}
     ])
     return jsonify(list(queue))
+
 
 @app.route('/api/staff/walkin', methods=['POST'])
 @login_required
@@ -430,12 +569,14 @@ def create_walkin_appointment():
 
     return jsonify({"success": True, "message": "Walk-in patient registered and checked in!"})
 
+
 @app.route('/api/staff/checkin/<appt_id>', methods=['POST'])
 @login_required
 @role_required(['staff'])
 def checkin_patient(appt_id):
     mongo.db.appointments.update_one({"_id": ObjectId(appt_id)}, {"$set": {"status": "checked-in"}})
     return jsonify({"success": True})
+
 
 @app.route('/api/staff/prescriptions', methods=['GET'])
 @login_required
@@ -447,11 +588,13 @@ def get_staff_prescriptions():
         {"$unwind": {"path": "$patient_info", "preserveNullAndEmptyArrays": True}},
         {"$lookup": {"from": "slots", "localField": "slot_id", "foreignField": "_id", "as": "slot_info"}},
         {"$unwind": {"path": "$slot_info", "preserveNullAndEmptyArrays": True}},
-        {"$lookup": {"from": "doctors", "localField": "slot_info.doctor_id", "foreignField": "_id", "as": "doctor_info"}},
+        {"$lookup": {"from": "doctors", "localField": "slot_info.doctor_id", "foreignField": "_id",
+                     "as": "doctor_info"}},
         {"$unwind": {"path": "$doctor_info", "preserveNullAndEmptyArrays": True}},
         {"$sort": {"created_at": -1}}
     ]
     return jsonify(list(mongo.db.appointments.aggregate(pipeline)))
+
 
 @app.route('/api/staff/mark_dispensed/<appt_id>', methods=['POST'])
 @login_required
@@ -545,6 +688,7 @@ def complete_appointment(appt_id):
 
     return jsonify({"success": True, "message": "Consultation completed and prescription recorded!"})
 
+
 @app.route('/api/doctor/history', methods=['GET'])
 @login_required
 @role_required(['doctor'])
@@ -572,6 +716,7 @@ def get_doctor_history():
     history = list(mongo.db.appointments.aggregate(pipeline))
     return jsonify(history)
 
+
 @app.route('/api/doctor/unavailable_times', methods=['POST'])
 @login_required
 @role_required(['doctor'])
@@ -591,6 +736,7 @@ def doctor_request_unavailable_time():
     })
 
     return jsonify({"success": True, "message": "Request submitted successfully!"})
+
 
 @app.route('/api/doctor/unavailable_times/my_requests', methods=['GET'])
 @login_required
@@ -630,6 +776,7 @@ def get_doctor_all_appointments():
     ]))
     return jsonify(appointments)
 
+
 # ================= 9. Admin API =================
 @app.route('/api/admin/stats', methods=['GET'])
 @login_required
@@ -641,6 +788,7 @@ def get_admin_stats():
         "completed": mongo.db.appointments.count_documents({"status": "completed"}),
         "available_slots": mongo.db.slots.count_documents({"status": "available"})
     })
+
 
 @app.route('/api/admin/users', methods=['GET', 'POST'])
 @login_required
@@ -671,6 +819,7 @@ def admin_manage_users():
     })
     return jsonify({"success": True, "message": "User created successfully!"})
 
+
 @app.route('/api/admin/users/<user_id>', methods=['PUT', 'DELETE'])
 @login_required
 @role_required(['admin'])
@@ -691,9 +840,11 @@ def admin_modify_user(user_id):
     mongo.db.users.update_one({"_id": ObjectId(user_id)}, {"$set": update_data})
     return jsonify({"success": True, "message": "User updated!"})
 
+
 @app.route('/api/specialties', methods=['GET'])
 @login_required
 def get_specialties(): return jsonify(list(mongo.db.specialties.find()))
+
 
 @app.route('/api/admin/specialties', methods=['POST', 'DELETE'])
 @login_required
@@ -705,6 +856,7 @@ def manage_specialties():
         mongo.db.specialties.delete_one({"_id": ObjectId(request.view_args['spec_id'])})
     return jsonify({"success": True})
 
+
 @app.route('/api/admin/doctors', methods=['GET'])
 @login_required
 @role_required(['admin'])
@@ -714,6 +866,7 @@ def admin_get_doctors():
         {"$unwind": {"path": "$staff_info", "preserveNullAndEmptyArrays": True}}
     ])
     return jsonify(list(doctors))
+
 
 @app.route('/api/admin/doctors/<doctor_id>', methods=['PUT'])
 @login_required
@@ -725,6 +878,7 @@ def admin_update_doctor(doctor_id):
     }})
     return jsonify({"success": True, "message": "Doctor details updated!"})
 
+
 @app.route('/api/admin/doctors/<doctor_id>/assign_staff', methods=['PUT'])
 @login_required
 @role_required(['admin'])
@@ -734,11 +888,13 @@ def admin_assign_staff(doctor_id):
     mongo.db.doctors.update_one({"_id": ObjectId(doctor_id)}, {"$set": {"assigned_staff_id": update_val}})
     return jsonify({"success": True, "message": "Staff assignment updated!"})
 
+
 @app.route('/api/admin/staff_list', methods=['GET'])
 @login_required
 @role_required(['admin'])
 def admin_get_staff_list():
     return jsonify(list(mongo.db.users.find({"role": "staff"}, {"password": 0})))
+
 
 @app.route('/api/admin/unavailable_times', methods=['GET'])
 @login_required
@@ -750,6 +906,7 @@ def admin_get_unavailable_times():
     ])
     return jsonify(list(times))
 
+
 @app.route('/api/admin/unavailable_times/<time_id>/status', methods=['PUT'])
 @login_required
 @role_required(['admin'])
@@ -758,12 +915,14 @@ def admin_update_unavailable_status(time_id):
     mongo.db.unavailable_times.update_one({"_id": ObjectId(time_id)}, {"$set": {"status": data.get('status')}})
     return jsonify({"success": True, "message": f"Request {data.get('status')}!"})
 
+
 @app.route('/api/admin/unavailable_times/<time_id>', methods=['DELETE'])
 @login_required
 @role_required(['admin'])
 def admin_delete_unavailable_time(time_id):
     mongo.db.unavailable_times.delete_one({"_id": ObjectId(time_id)})
     return jsonify({"success": True, "message": "Request deleted!"})
+
 
 def init_default_data():
     with app.app_context():
@@ -832,6 +991,7 @@ def init_default_data():
                     print(f"✅ Generated 60 days of slots for {doc['name']}")
             print("✅ All doctors' calendars are fully populated.")
 
+
 if __name__ == '__main__':
-    init_default_data()  
+    init_default_data()
     app.run(debug=True, port=5000)
