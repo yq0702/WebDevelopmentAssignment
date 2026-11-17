@@ -1,11 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-MediSync 统一后端（app.py）
-============================================================
-本文件 = 原 app.py 全部功能 + main.py 全部 AI 功能（完整合并，只加不减）
-运行： python app.py
-============================================================
-"""
+
 
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from flask.json.provider import DefaultJSONProvider
@@ -23,10 +16,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from functools import wraps
 
-# ================= 🌟 AI Triage 依赖导入（合并自 main.py） =================
 from groq import Groq
 
-# 可选：自动读取 .env（未安装 python-dotenv 也不影响运行）
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -39,23 +30,21 @@ app = Flask(__name__, template_folder='templates', static_folder='static')
 
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medisync_super_secret_key_2024")
 if app.secret_key == "medisync_super_secret_key_2024":
-    print("⚠️  正在使用内置默认 secret_key，请在生产环境设置 FLASK_SECRET_KEY 环境变量！")
+    print("⚠️  default secret_key，set FLASK_SECRET_KEY environment！")
 
 app.config["MONGO_URI"] = os.environ.get("MONGO_URI", "mongodb://localhost:27017/medisync_db")
 
-# 🌟 新增：Cookie 安全加固（历史不再放 cookie，彻底避免 4KB 溢出）
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
-app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024  # 2MB 请求体上限
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
 
 mongo = PyMongo(app)
 CORS(app, supports_credentials=True)
 
 
-# ================= 🌟 初始化 Groq 客户端与 System Prompt（合并 main.py） =================
-# 🔒 不再硬编码任何 API Key。请设置环境变量 GROQ_API_KEY
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
+
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 
 groq_client = None
@@ -64,18 +53,18 @@ if GROQ_API_KEY:
         groq_client = Groq(api_key=GROQ_API_KEY, timeout=30.0, max_retries=2)
         print(f"✅ Groq client ready. Model = {GROQ_MODEL}")
     except Exception as e:
-        print(f"❌ Groq 初始化失败：{e}")
+        print(f"❌ Groq inti failed：{e}")
 else:
-    print("⚠️  未设置 GROQ_API_KEY，AI 导诊将返回友好降级提示（其余功能不受影响）。")
+    print("⚠️  Unset GROQ_API_KEY，AI .")
 
-client = groq_client  # 🌟 兼容 main.py 里的变量名 client
+client = groq_client
 
 AI_MAX_INPUT_CHARS = 300
-AI_MAX_TOKENS = 1024          # 推理模型的 reasoning 也计入，600 会导致正文为空
-AI_KEEP_MESSAGES = 20         # 保留最近 10 轮（user + assistant 各 1 条）
-AI_MIN_INTERVAL = 1.0         # 同一用户最小请求间隔（秒）
+AI_MAX_TOKENS = 1024
+AI_KEEP_MESSAGES = 20
+AI_MIN_INTERVAL = 1.0
 AI_REASONING_EFFORT = os.environ.get("GROQ_REASONING_EFFORT", "low")
-AI_DIR_CACHE_TTL = 60         # 科室目录缓存秒数
+AI_DIR_CACHE_TTL = 60
 
 AI_FALLBACK = ("I am so sorry, but I encountered a small technical hiccup while trying to "
                "evaluate your symptoms. Could you please try sending your message again?")
@@ -85,7 +74,6 @@ AI_NO_KEY = ("Our AI triage assistant is temporarily offline. Please choose a de
              "manually from the booking list, or ask our front desk staff for help.")
 AI_DISCLAIMER = "Guidance only, not a medical diagnosis."
 
-# System Prompt（保留原变量名 SYSTEM_PROMPT；新增 DIRECTORY LOCK / ER 协议 / 真实医生示例）
 SYSTEM_PROMPT = """You are MediSync, a kind, empathetic, and advanced hospital triage assistant. Your target hospital directory includes {DEPT_COUNT} specialized departments.
 
 CRITICAL SECURITY & CONVERSATIONAL RULES:
@@ -196,7 +184,6 @@ def add_header(response):
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '-1'
-    # 🌟 新增：基础安全响应头
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     return response
@@ -207,7 +194,6 @@ def parse_json(data):
 
 
 def to_oid(value):
-    """🌟 新增：安全转 ObjectId，避免非法 id 直接 500"""
     try:
         return ObjectId(str(value))
     except Exception:
@@ -215,12 +201,10 @@ def to_oid(value):
 
 
 def get_json():
-    """🌟 新增：容错取 JSON"""
     return request.get_json(silent=True) or {}
 
 
 def generate_patient_id():
-    """🌟 新增：避免并发/删除后编号重复（格式仍为 MS-0001）"""
     base = mongo.db.users.count_documents({"role": "patient"})
     for i in range(0, 5000):
         pid = f"MS-{str(base + i + 1).zfill(4)}"
@@ -320,7 +304,6 @@ def admin_dashboard():
 @login_required
 @role_required(['patient'])
 def ai_standalone_page():
-    """🌟 合并自 main.py 的 '/'：保留独立 AI 聊天页 index.html（不影响 app 原有 '/'）"""
     try:
         return render_template('index.html', user=session['user'])
     except Exception:
@@ -329,7 +312,6 @@ def ai_standalone_page():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """🌟 新增：健康检查"""
     try:
         mongo.db.command('ping')
         db_ok = True
@@ -366,8 +348,8 @@ def register_patient():
         "username": data['username'], "password": pw_hash, "role": "patient",
         "name": data['name'], "ic_number": data['ic_number'], "email": data['email'],
         "phone": data.get('phone', ''),
-        "gender": data.get('gender', ''),      # 🌟 新增：AI 分诊会用到
-        "dob": data.get('dob', ''),            # 🌟 新增
+        "gender": data.get('gender', ''),
+        "dob": data.get('dob', ''),
         "patient_id": patient_id, "doctor_id": None,
         "created_at": datetime.utcnow()
     })
@@ -384,7 +366,7 @@ def login():
             "name": user['name'], "patient_id": user.get('patient_id'),
             "doctor_id": str(user['doctor_id']) if user.get('doctor_id') else None
         }
-        session.pop('triage_history', None)  # 🌟 清理旧版遗留 cookie 历史
+        session.pop('triage_history', None)
         return jsonify({"success": True, "role": user['role']})
     return jsonify({"success": False, "message": "Invalid username or password"}), 401
 
@@ -478,7 +460,6 @@ def book_slot():
     if not updated_slot:
         return jsonify({"success": False, "message": "Slot was just booked by someone else."}), 400
 
-    # 🌟 新增：前端没传 ai_summary 时，自动带上最近一次 AI 导诊结论（医生端可见）
     ai_summary = (data.get('ai_summary') or '').strip()
     if not ai_summary or ai_summary.upper() == 'N/A':
         history = load_ai_history(session['user']['id'])
@@ -524,7 +505,6 @@ def cancel_appointment(appt_id):
     if not oid:
         return jsonify({"success": False, "message": "Invalid appointment id"}), 400
 
-    # 🌟 新增归属校验：只能取消自己的预约
     appt = mongo.db.appointments.find_one({
         "_id": oid, "patient_id": session['user']['patient_id']})
     if not appt:
@@ -539,7 +519,6 @@ def cancel_appointment(appt_id):
 @login_required
 @role_required(['patient'])
 def ai_triage():
-    """旧版关键词分诊（完整保留，并补充中文/马来文关键词 + 真实医生匹配）"""
     symptoms = (get_json().get('symptoms') or '').lower()
     recommendation = "General Practitioner (GP)"
     if any(w in symptoms for w in ['chest', 'heart', 'breath', '胸', '心', '喘', 'dada', 'sesak']):
@@ -568,7 +547,6 @@ def patient_profile():
         return jsonify(user)
     else:
         data = get_json()
-        # 🌟 只允许白名单字段，防止患者自行改 role / patient_id
         allowed = ['name', 'email', 'phone', 'ic_number', 'gender', 'dob']
         update_data = {k: v for k, v in data.items() if k in allowed and v}
         if data.get('password'):
@@ -620,7 +598,6 @@ Best regards,
 MediSync Health Team
 """
 
-    # 🌟 新增：配置了 SMTP_HOST / SMTP_USER / SMTP_PASS 就真发送，否则维持原模拟行为
     smtp_host = os.environ.get("SMTP_HOST")
     smtp_user = os.environ.get("SMTP_USER")
     smtp_pass = os.environ.get("SMTP_PASS")
@@ -674,20 +651,18 @@ def get_doctor_profile(doctor_id):
     })
 
 
-# ================= 🌟 6.5 Advanced AI Triage（完整合并 main.py，全站唯一 AI 引擎） =================
+# ================= 🌟 6.5 Advanced AI Triage =================
 
 _dir_cache = {"ts": 0.0, "text": "", "count": 0}
-_ai_last_call = {}                 # 单进程限流；多 worker 部署请换 Redis
-_reasoning_ok = True               # 模型不支持 reasoning_effort 时自动降级
+_ai_last_call = {}
+_reasoning_ok = True
 
 
 def invalidate_directory_cache():
-    """医生/科室变动后调用，保证 AI 目录实时准确"""
     _dir_cache.update({"ts": 0.0, "text": "", "count": 0})
 
 
 def get_hospital_directory(ttl=AI_DIR_CACHE_TTL):
-    """🌟 从数据库生成真实科室目录，彻底杜绝 AI 编造医生/诊室"""
     now = time.monotonic()
     if _dir_cache["text"] and now - _dir_cache["ts"] < ttl:
         return _dir_cache["text"], _dir_cache["count"]
@@ -731,7 +706,6 @@ def build_system_prompt(user_id):
     return prompt + "\nCurrent Patient Profile: " + ", ".join(parts) + "."
 
 
-# ---- 历史存 MongoDB（关键：绝不放 session cookie，避免 4KB 溢出导致掉登录/失忆） ----
 def load_ai_history(user_id):
     oid = to_oid(user_id)
     if not oid:
@@ -767,13 +741,11 @@ def strip_thinking(text):
 
 
 def clean_ai_text(text):
-    """去掉内部标记，得到可直接展示 / 存入病历摘要的纯文本"""
     text = strip_thinking(text)
     return text.replace("[SHOW_BOOKING_BUTTON]", "").replace("[EMERGENCY]", "").strip()
 
 
 def parse_ai_routing(text):
-    """🌟 解析路由并回查数据库；查不到真实医生一律不返回按钮（防幻觉预订）"""
     if "[SHOW_BOOKING_BUTTON]" not in (text or ""):
         return None
     dept_m = re.search(r"^\s*Department:\s*(.+)$", text, re.M)
@@ -811,20 +783,18 @@ RED_FLAGS = [
 
 
 def detect_red_flag(text):
-    """🌟 确定性急诊兜底：即使模型漏判也会给出急诊指引"""
     low = (text or "").lower()
     return any(k in low for k in RED_FLAGS)
 
 
 def groq_create(messages):
-    """统一调用入口：保留 main.py 的 tool_choice='none'，并兼容不支持 reasoning_effort 的情况"""
     global _reasoning_ok
     kwargs = dict(
         messages=messages,
         model=GROQ_MODEL,
         temperature=0.1,
         max_tokens=AI_MAX_TOKENS,
-        tool_choice="none"          # ✅ 从 main.py 完整补回
+        tool_choice="none"
     )
     if _reasoning_ok and AI_REASONING_EFFORT:
         try:
@@ -848,25 +818,21 @@ def patient_ai_chat():
     data = get_json()
     user_message = re.sub(r"\s+", " ", (data.get("message") or "")).strip()
 
-    # 安全检查 1: 空消息
     if not user_message:
         return jsonify({"response": "It looks like your message was empty. "
                                     "Please take your time and tell me how you are feeling."})
 
-    # 安全检查 2: 长度限制
     if len(user_message) > AI_MAX_INPUT_CHARS:
         return jsonify({"response": "I appreciate the detail, but your message is a bit too long "
                                     "for me to process quickly. Could you please share a brief "
                                     "summary of your main symptoms?"})
 
-    # 安全检查 3: 阻止过多特殊字符（\w 支持中文 / 马来文，不再误拦多语言用户）
     symbol_count = len(re.findall(r"[^\w\s.,?+\-/'():]", user_message))
     if symbol_count > 10:
         return jsonify({"response": "It looks like there might be some unusual characters in your "
                                     "message. Could you please try typing your symptoms again "
                                     "using standard text?"})
 
-    # 安全检查 4: 阻止命令前缀
     forbidden_prefixes = ['/', '\\', '@', '!', 'system:', 'admin:']
     if any(user_message.lower().startswith(prefix) for prefix in forbidden_prefixes):
         return jsonify({"response": "I am just a simple medical assistant and cannot process system "
@@ -874,13 +840,11 @@ def patient_ai_chat():
 
     user_id = session['user']['id']
 
-    # 🌟 限流：防连点刷爆 Groq 配额
     now = time.monotonic()
     if now - _ai_last_call.get(user_id, 0) < AI_MIN_INTERVAL:
         return jsonify({"response": "Please give me a moment to finish thinking about your last message."}), 429
     _ai_last_call[user_id] = now
 
-    # 🌟 未配置 Key 时优雅降级，不影响其它任何功能
     if groq_client is None:
         return jsonify({"response": AI_NO_KEY, "error": "ai_disabled",
                         "disclaimer": AI_DISCLAIMER}), 503
@@ -900,7 +864,6 @@ def patient_ai_chat():
         return jsonify({"response": AI_FALLBACK, "error": "ai_unavailable",
                         "disclaimer": AI_DISCLAIMER}), 503
 
-    # 🌟 急诊兜底
     emergency = "[EMERGENCY]" in clean_response
     if not emergency and detect_red_flag(user_message):
         emergency = True
@@ -915,10 +878,10 @@ def patient_ai_chat():
     ], routing=routing)
 
     return jsonify({
-        "response": clean_response,          # ← 原有字段，前端无需改动即可继续工作
-        "routing": routing,                  # 🌟 新增：真实 doctor_id，可直接拉号源
-        "emergency": emergency,              # 🌟 新增
-        "disclaimer": AI_DISCLAIMER          # 🌟 新增
+        "response": clean_response,
+        "routing": routing,
+        "emergency": emergency,
+        "disclaimer": AI_DISCLAIMER
     })
 
 
@@ -926,7 +889,6 @@ def patient_ai_chat():
 @login_required
 @role_required(['patient'])
 def get_ai_chat_history():
-    """🌟 新增：刷新页面 / 换设备后恢复对话"""
     messages = load_ai_history(session['user']['id'])
     return jsonify({
         "messages": [{"role": m["role"], "content": clean_ai_text(m["content"])} for m in messages]
@@ -937,7 +899,6 @@ def get_ai_chat_history():
 @login_required
 @role_required(['patient'])
 def reset_ai_chat():
-    # 清空当前用户的聊天历史（MongoDB + 旧版 session 遗留一并清）
     clear_ai_history(session['user']['id'])
     session.pop('triage_history', None)
     return jsonify({"success": True})
@@ -947,7 +908,6 @@ def reset_ai_chat():
 @login_required
 @role_required(['patient'])
 def legacy_chat():
-    """🌟 合并自 main.py 的 /chat：保留旧接口路径，内部复用同一引擎（已加登录校验）"""
     return patient_ai_chat()
 
 
@@ -988,7 +948,6 @@ def create_walkin_appointment():
     if not doc_oid:
         return jsonify({"success": False, "message": "Invalid doctor id"}), 400
 
-    # 🌟 新增：撞号保护
     if mongo.db.slots.find_one({"doctor_id": doc_oid, "date": date, "time": time_str}):
         return jsonify({"success": False,
                         "message": "This doctor already has a slot at that time."}), 400
@@ -1041,7 +1000,7 @@ def get_staff_prescriptions():
     result = list(mongo.db.appointments.aggregate(pipeline))
     for r in result:
         if r.get('patient_info'):
-            r['patient_info'].pop('password', None)   # 🌟 不外泄密码哈希
+            r['patient_info'].pop('password', None)
     return jsonify(result)
 
 
@@ -1144,7 +1103,6 @@ def complete_appointment(appt_id):
                 target_date = (datetime.utcnow() + timedelta(days=days_offset)).strftime('%Y-%m-%d')
                 target_time = "10:00 AM"
 
-                # 🌟 新增：避免同一医生复诊撞号
                 existed = mongo.db.slots.find_one(
                     {"doctor_id": doctor_id, "date": target_date, "time": target_time})
                 if existed:
@@ -1269,7 +1227,6 @@ def get_admin_stats():
             {"status": {"$in": ["booked", "checked-in"]}}),
         "completed": mongo.db.appointments.count_documents({"status": "completed"}),
         "available_slots": mongo.db.slots.count_documents({"status": "available"}),
-        # 🌟 新增指标（原有 4 个字段全部保留）
         "ai_sessions": mongo.db.ai_chats.count_documents({}),
         "total_doctors": mongo.db.doctors.count_documents({}),
         "pending_requests": mongo.db.unavailable_times.count_documents({"status": "pending"})
@@ -1299,7 +1256,7 @@ def admin_manage_users():
             "assigned_staff_id": None
         })
         doctor_id = doc_result.inserted_id
-        invalidate_directory_cache()   # 🌟 AI 目录立即生效
+        invalidate_directory_cache()
 
     mongo.db.users.insert_one({
         "username": data['username'], "password": pw_hash, "role": data['role'],
@@ -1323,7 +1280,6 @@ def admin_modify_user(user_id):
         return jsonify({"success": True, "message": "User deleted!"})
 
     data = get_json()
-    # 🌟 白名单，防止越权改 role / patient_id
     allowed = ['name', 'email', 'phone', 'ic_number', 'gender', 'dob']
     update_data = {k: v for k, v in data.items() if k in allowed and v}
     if data.get('password'):
@@ -1343,7 +1299,6 @@ def get_specialties():
 @login_required
 @role_required(['admin'])
 def manage_specialties():
-    """原接口保留：DELETE 时可通过 ?spec_id= 或 body 传 id（修复原 view_args KeyError）"""
     if request.method == 'POST':
         name = (get_json().get('name') or '').strip()
         if not name:
@@ -1368,7 +1323,6 @@ def manage_specialties():
 @login_required
 @role_required(['admin'])
 def delete_specialty(spec_id):
-    """🌟 新增 RESTful 路径版本（旧接口同时保留）"""
     oid = to_oid(spec_id)
     if not oid:
         return jsonify({"success": False, "message": "Invalid specialty id"}), 400
@@ -1406,7 +1360,7 @@ def admin_update_doctor(doctor_id):
                    if data.get(k) is not None}
     if update_data:
         mongo.db.doctors.update_one({"_id": oid}, {"$set": update_data})
-        if update_data.get('name'):   # 🌟 同步登录账号显示名
+        if update_data.get('name'):
             mongo.db.users.update_one({"doctor_id": oid}, {"$set": {"name": update_data['name']}})
     invalidate_directory_cache()
     return jsonify({"success": True, "message": "Doctor details updated!"})
@@ -1474,7 +1428,6 @@ def admin_delete_unavailable_time(time_id):
 # ================= 10. Init Default Data & Main =================
 def init_default_data():
     with app.app_context():
-        # 🌟 新增：索引（重复数据会导致创建失败，仅告警不中断）
         try:
             mongo.db.users.create_index("username", unique=True)
             mongo.db.users.create_index("patient_id", unique=True, sparse=True)
@@ -1537,7 +1490,6 @@ def init_default_data():
                 print(f"✅ Created: {doc['name']} | User: {doc['username']} | Pass: {doc['password']}")
         print("=" * 55 + "\n")
 
-        # 绑定历史遗留的医生账号（原逻辑保留 + 补 null 情况）
         for u in mongo.db.users.find({"role": "doctor",
                                       "$or": [{"doctor_id": {"$exists": False}},
                                               {"doctor_id": None}]}):
@@ -1560,7 +1512,7 @@ def init_default_data():
                             bulk.append({"doctor_id": doc['_id'], "date": date_str,
                                          "time": t, "status": "available"})
                     if bulk:
-                        mongo.db.slots.insert_many(bulk)   # 🌟 批量插入，启动更快
+                        mongo.db.slots.insert_many(bulk)  
                     print(f"✅ Generated 60 days of slots for {doc['name']}")
             print("✅ All doctors' calendars are fully populated.")
 
