@@ -119,6 +119,17 @@
             font-size: 0.8rem;
             display: inline-block;
         }
+
+        .message { margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 12px; max-width: 85%; line-height: 1.5; word-wrap: break-word; }
+        .ai-message { background: #eff6ff; color: #1e3a8a; border-bottom-left-radius: 4px; align-self: flex-start; }
+        .user-message { background: #3b82f6; color: white; border-bottom-right-radius: 4px; margin-left: auto; }
+        .quick-book-btn { margin-top: 0.75rem; padding: 0.5rem 1rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s; }
+        .quick-book-btn:hover { background: #059669; }
+        .body-part { position: absolute; cursor: pointer; border: 1px dashed rgba(59, 130, 246, 0.5); border-radius: 8px; transition: background 0.2s; }
+        .body-part:hover { background: rgba(59, 130, 246, 0.2); }
+        .chat-container { flex: 1; display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; }
+
         @media (max-width: 1200px) {
             .dashboard-layout {
                 grid-template-columns: 1fr !important;
@@ -190,6 +201,22 @@
                     </div>
                 </div>
 
+                <!-- Advanced AI Triage Entry Card -->
+                <div class="card" style="background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); border: 1px solid #bfdbfe; padding: 1.5rem 2rem;">
+                    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+                        <div style="font-size: 3rem; color: #3b82f6;">
+                            <i class="fa-solid fa-stethoscope"></i>
+                        </div>
+                        <div style="flex: 1; min-width: 250px;">
+                            <h3 style="margin: 0 0 0.5rem 0; color: #1e3a8a; font-size: 1.25rem; font-weight: 700;">Advanced AI Symptom Checker</h3>
+                            <p style="margin: 0; color: #475569; font-size: 0.95rem;">Not sure which doctor to see? Click on our interactive 2.5D body map or describe your symptoms, and our AI will recommend the right specialist and help you book instantly.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openTriageModal()" style="padding: 0.75rem 1.5rem; font-weight: 600; white-space: nowrap;">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Start AI Triage
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Upcoming Reminders Card -->
                 <div id="upcomingRemindersCard" class="card" style="display: none; border-left: 5px solid var(--accent-amber); background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);">
                     <h3 class="card-title" style="color: #92400e; margin-bottom: 1rem;">
@@ -200,7 +227,7 @@
                 </div>
 
                 <div class="grid-main" style="display: grid; grid-template-columns: 1fr 1.1fr; gap: 1.5rem;">
-                    <!-- AI Triage -->
+                    <!-- AI Triage (原有简单版保留) -->
                     <div class="card ai-box" style="padding: 1.5rem;">
                         <h3 class="card-title" style="margin-bottom: 1rem;">
                             <i class="fa-solid fa-robot ai-sparkle-icon"></i>
@@ -381,7 +408,7 @@
             </div>
         </div>
     </div>
-    
+
     <div id="prescriptionModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 700px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
@@ -411,6 +438,60 @@
         </div>
     </div>
 
+    <!-- AI Triage Modal -->
+    <div id="aiTriageModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 900px; height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid var(--border-color);">
+                <div>
+                    <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--secondary); margin: 0;">
+                        <i class="fa-solid fa-robot" style="color: var(--primary);"></i> AI Symptom Checker
+                    </h3>
+                </div>
+                <span class="modal-close" onclick="closeTriageModal()" style="cursor: pointer; font-size: 1.5rem; line-height: 1;">&times;</span>
+            </div>
+
+            <div style="display: flex; flex: 1; gap: 1.5rem; padding: 1.5rem; overflow: hidden;">
+                <!-- Left: 2.5D Body Model -->
+                <div style="flex: 1; background: #f8fafc; border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border: 1px solid #e2e8f0;">
+                    <img id="body-image" src="/static/model_front.jpg" alt="Body Model" style="max-height: 300px; object-fit: contain; margin-bottom: 1rem; pointer-events: none;">
+
+                    <!-- Front Hitboxes -->
+                    <div id="hitboxes-front" class="body-hitboxes" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%); width: 200px; height: 300px;">
+                        <div class="body-part" data-part="Head" style="top: 0; left: 35%; width: 30%; height: 15%;"></div>
+                        <div class="body-part" data-part="Chest" style="top: 15%; left: 25%; width: 50%; height: 25%;"></div>
+                        <div class="body-part" data-part="Abdomen" style="top: 40%; left: 30%; width: 40%; height: 20%;"></div>
+                        <div class="body-part" data-part="Arms" style="top: 15%; left: 0; width: 25%; height: 40%;"></div>
+                        <div class="body-part" data-part="Legs" style="top: 60%; left: 25%; width: 50%; height: 40%;"></div>
+                    </div>
+
+                    <!-- Back Hitboxes -->
+                    <div id="hitboxes-back" class="body-hitboxes" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%); width: 200px; height: 300px;">
+                        <div class="body-part" data-part="Back" style="top: 15%; left: 25%; width: 50%; height: 45%;"></div>
+                    </div>
+
+                    <button id="flip-btn" class="btn btn-outline btn-sm" style="margin-top: auto; z-index: 2;">Flip to Back</button>
+                    <p id="selected-region-text" style="margin-top: 0.5rem; font-size: 0.9rem; color: #64748b; z-index: 2;"></p>
+                </div>
+
+                <!-- Right: Chat Interface -->
+                <div class="chat-container">
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="message ai-message">
+                            Hi, I am MediSync. Please select your profile, then click on the body map to indicate where you are experiencing symptoms, or type them below.
+                        </div>
+                    </div>
+                    <div style="padding: 1rem; border-top: 1px solid #e2e8f0; display: flex; gap: 0.5rem; background: #f8fafc;">
+                        <input id="user-input" type="text" class="form-input" placeholder="Describe your symptoms (e.g., 'sharp pain in my chest')..." style="flex: 1;">
+                        <button id="send-btn" class="btn btn-primary">
+                            <i class="fa-solid fa-paper-plane"></i> Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/script.js"></script>
+    <script src="/static/triage.js"></script>
 </body>
 </html>
