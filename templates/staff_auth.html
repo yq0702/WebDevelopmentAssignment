@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>MediSync - Staff & Doctor Portal</title>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- MediSync CSS -->
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='styles.css') }}">
+</head>
+
+<body class="auth-page">
+
+<div class="card auth-card">
+
+    <div class="auth-header">
+
+        <a href="#" class="logo auth-logo">
+            <i class="fa-solid fa-heart-pulse logo-icon"></i>
+            Medi<span>Sync</span>
+        </a>
+
+        <h2>Staff & Doctor Portal</h2>
+
+        <p>
+            Sign in to access your MediSync dashboard.
+        </p>
+
+    </div>
+
+
+    <div class="auth-notice">
+        <i class="fa-solid fa-shield-halved"></i>
+        Authorized hospital personnel only.
+    </div>
+
+
+    <form id="staffLoginForm">
+
+        <div class="form-group">
+
+            <label for="staff-user">
+                Username
+            </label>
+
+            <input
+                    type="text"
+                    id="staff-user"
+                    class="form-input"
+                    placeholder="Enter username"
+                    required>
+
+        </div>
+
+
+        <div class="form-group">
+
+            <label for="staff-pass">
+                Password
+            </label>
+
+            <input
+                    type="password"
+                    id="staff-pass"
+                    class="form-input"
+                    placeholder="Enter password"
+                    required>
+
+        </div>
+
+
+        <div id="loginMessage"
+             class="status-message">
+        </div>
+
+
+        <button
+                type="submit"
+                id="loginButton"
+                class="btn btn-primary auth-button">
+
+            <i class="fa-solid fa-lock"></i>
+            Secure Login
+
+        </button>
+
+    </form>
+
+</div>
+
+
+<script src="{{ url_for('static', filename='staff_auth.js') }}"></script>
+
+</body>
+
+</html>
