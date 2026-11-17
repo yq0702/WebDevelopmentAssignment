@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediSync - Patient Portal</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        .container {
+            max-width: 1800px !important;
+            width: 96% !important;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .calendar-day {
+            padding: 0.7rem 0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-main);
+            text-align: center;
+        }
+        .calendar-day.available:hover {
+            background: var(--primary-light);
+            color: var(--primary);
+            transform: scale(1.05);
+        }
+        .calendar-day.selected {
+            background: var(--primary);
+            color: #fff !important;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
+            transform: scale(1.05);
+        }
+        .calendar-day.disabled {
+            color: #cbd5e1;
+            cursor: not-allowed;
+            background: transparent;
+        }
+        .calendar-day.no-slot {
+            color: var(--text-muted);
+            cursor: pointer;
+            background: transparent;
+            border: 1px dashed #cbd5e1;
+        }
+        .calendar-day.no-slot:hover {
+            background: #f1f5f9;
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+        .calendar-day.today:not(.selected) {
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+        .calendar-header-day {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 0.5rem 0;
+        }
+
+        .date-picker-wrapper {
+            display: flex;
+            align-items: center;
+            background: var(--bg-body);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.3rem 0.8rem;
+            transition: all 0.2s;
+            gap: 4px;
+        }
+        .date-picker-wrapper:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+        .date-select {
+            appearance: none;
+            -webkit-appearance: none;
+            background: transparent;
+            border: none;
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--secondary);
+            cursor: pointer;
+            padding: 0.2rem;
+            outline: none;
+            font-family: inherit;
+        }
+
+        /* 🌟 优化表格显示 */
+        .health-journey-table {
+            width: 100%;
+            font-size: 0.85rem;
+        }
+        .health-journey-table th {
+            padding: 0.6rem 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .health-journey-table td {
+            padding: 0.8rem 0.5rem;
+            vertical-align: middle;
+        }
+        .booking-id {
+            font-family: 'Courier New', monospace;
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            display: inline-block;
+        }
+
+        .message { margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 12px; max-width: 85%; line-height: 1.5; word-wrap: break-word; }
+        .ai-message { background: #eff6ff; color: #1e3a8a; border-bottom-left-radius: 4px; align-self: flex-start; }
+        .user-message { background: #3b82f6; color: white; border-bottom-right-radius: 4px; margin-left: auto; }
+        .quick-book-btn { margin-top: 0.75rem; padding: 0.5rem 1rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; transition: background 0.2s; }
+        .quick-book-btn:hover { background: #059669; }
+        .body-part { position: absolute; cursor: pointer; border: 1px dashed rgba(59, 130, 246, 0.5); border-radius: 8px; transition: background 0.2s; }
+        .body-part:hover { background: rgba(59, 130, 246, 0.2); }
+        .chat-container { flex: 1; display: flex; flex-direction: column; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background: #ffffff; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; }
+
+        @media (max-width: 1200px) {
+            .dashboard-layout {
+                grid-template-columns: 1fr !important;
+            }
+            .sticky-sidebar {
+                position: static !important;
+                margin-top: 1.5rem;
+            }
+            .container {
+                max-width: 100% !important;
+                padding: 0 1rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .grid-main {
+                grid-template-columns: 1fr !important;
+            }
+            .date-picker-wrapper {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-aurora"><span></span><span></span><span></span></div>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <a href="#" class="logo"><i class="fa-solid fa-heart-pulse logo-icon"></i> Medi<span>Sync</span></a>
+        <div class="role-switcher">
+            <button class="role-btn active" onclick="openDoctorsModal()">Doctor Profiles</button>
+            <button class="role-btn" onclick="openSettingsModal()">Settings</button>
+        </div>
+        <div class="user-profile">
+            <img src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100" class="avatar avatar-sm">
+            <div class="user-info">
+                <span class="user-name">{{ user.name }}</span>
+                <span class="user-role">Patient ID: #{{ user.patient_id }}</span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="logout()">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="dashboard-layout" style="display: grid; grid-template-columns: 3fr 1fr; gap: 2rem; align-items: start;">
+
+            <div class="main-content" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <!-- Welcome Header -->
+                <div class="card" style="background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%); border: none; padding: 1.5rem 2rem;">
+                    <h2 style="font-size: 1.6rem; font-weight: 800; color: var(--secondary); margin-bottom: 0.5rem;">Welcome back, {{ user.name.split()[0] }}!</h2>
+                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Your health journey is our priority. Manage your appointments and stay on top of your wellness.</p>
+                    <div style="display: flex; gap: 2.5rem;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.25rem; background: var(--primary-light); border-radius: 12px;">
+                            <span style="font-size: 2.2rem; font-weight: 800; color: var(--primary);" id="statUpcoming">0</span>
+                            <div>
+                                <div style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">Upcoming</div>
+                                <div style="color: var(--primary); font-size: 0.75rem;">Appointments</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1.25rem; background: #d1fae5; border-radius: 12px;">
+                            <span style="font-size: 2.2rem; font-weight: 800; color: var(--accent-green);" id="statCompleted">0</span>
+                            <div>
+                                <div style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600;">Completed</div>
+                                <div style="color: var(--accent-green); font-size: 0.75rem;">Visits</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced AI Triage Entry Card -->
+                <div class="card" style="background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); border: 1px solid #bfdbfe; padding: 1.5rem 2rem;">
+                    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+                        <div style="font-size: 3rem; color: #3b82f6;">
+                            <i class="fa-solid fa-stethoscope"></i>
+                        </div>
+                        <div style="flex: 1; min-width: 250px;">
+                            <h3 style="margin: 0 0 0.5rem 0; color: #1e3a8a; font-size: 1.25rem; font-weight: 700;">Advanced AI Symptom Checker</h3>
+                            <p style="margin: 0; color: #475569; font-size: 0.95rem;">Not sure which doctor to see? Click on our interactive 2.5D body map or describe your symptoms, and our AI will recommend the right specialist and help you book instantly.</p>
+                        </div>
+                        <button class="btn btn-primary" onclick="openTriageModal()" style="padding: 0.75rem 1.5rem; font-weight: 600; white-space: nowrap;">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Start AI Triage
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Upcoming Reminders Card -->
+                <div id="upcomingRemindersCard" class="card" style="display: none; border-left: 5px solid var(--accent-amber); background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);">
+                    <h3 class="card-title" style="color: #92400e; margin-bottom: 1rem;">
+                        <i class="fa-solid fa-bell" style="color: var(--accent-amber);"></i> Upcoming Reminders (Next 3 Days)
+                    </h3>
+                    <div id="upcomingRemindersList" style="display: flex; flex-direction: column; gap: 1rem;">
+                    </div>
+                </div>
+
+                <div class="grid-main" style="display: grid; grid-template-columns: 1fr 1.1fr; gap: 1.5rem;">
+                    <!-- AI Triage (原有简单版保留) -->
+                    <div class="card ai-box" style="padding: 1.5rem;">
+                        <h3 class="card-title" style="margin-bottom: 1rem;">
+                            <i class="fa-solid fa-robot ai-sparkle-icon"></i>
+                            AI Smart Triage Assistant
+                        </h3>
+                        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Not sure which specialist to see? Let our AI analyze your symptoms.</p>
+                        <textarea id="aiInput" class="form-input" rows="3" placeholder="Describe your symptoms here..." style="width: 100%; margin-bottom: 1rem; resize: vertical;"></textarea>
+                        <button class="btn btn-primary" onclick="runAiTriage()" style="width: 100%;">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Analyze Symptoms
+                        </button>
+                        <div id="aiResult" class="ai-result-card"></div>
+                    </div>
+
+                    <!-- Reserve Slot Calendar -->
+                    <div class="card" style="padding: 1.5rem;">
+                        <h3 class="card-title" style="margin-bottom: 1.25rem;">
+                            <i class="fa-regular fa-calendar-check" style="color: var(--primary);"></i>
+                            Reserve Slot
+                            <span style="font-size: 0.7rem; background: var(--primary-light); color: var(--primary); padding: 3px 10px; border-radius: 50px; margin-left: 8px; font-weight: 700;">Advance up to 1 Year</span>
+                        </h3>
+
+                        <div id="calendarContainer">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <button class="btn btn-outline btn-sm" onclick="changeCalendarMonth(-1)" style="padding: 0.4rem 0.6rem;">
+                                        <i class="fa-solid fa-chevron-left"></i>
+                                    </button>
+                                    <div class="date-picker-wrapper">
+                                        <select id="monthPicker" onchange="onMonthYearChange()" class="date-select"></select>
+                                        <select id="yearPicker" onchange="onMonthYearChange()" class="date-select"></select>
+                                        <i class="fa-solid fa-calendar-days" style="color: var(--primary); margin-left: 4px; font-size: 0.9rem;"></i>
+                                    </div>
+                                    <button class="btn btn-outline btn-sm" onclick="changeCalendarMonth(1)" style="padding: 0.4rem 0.6rem;">
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                                <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+                                    <button class="btn btn-outline btn-sm" onclick="jumpToFuture(3)" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;">+3M</button>
+                                    <button class="btn btn-outline btn-sm" onclick="jumpToFuture(6)" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;">+6M</button>
+                                    <button class="btn btn-outline btn-sm" onclick="jumpToFuture(9)" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;">+9M</button>
+                                    <button class="btn btn-outline btn-sm" onclick="jumpToFuture(12)" style="font-size: 0.75rem; padding: 0.3rem 0.6rem; background: var(--primary-light); color: var(--primary); border-color: var(--primary); font-weight: 700;">+1Y</button>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.4rem; margin-bottom: 0.5rem;">
+                                <div class="calendar-header-day">Sun</div>
+                                <div class="calendar-header-day">Mon</div>
+                                <div class="calendar-header-day">Tue</div>
+                                <div class="calendar-header-day">Wed</div>
+                                <div class="calendar-header-day">Thu</div>
+                                <div class="calendar-header-day">Fri</div>
+                                <div class="calendar-header-day">Sat</div>
+                            </div>
+
+                            <div id="calendarDays" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.4rem; min-height: 220px;"></div>
+
+                            <div id="timeSlotsContainer" style="margin-top: 1.5rem; display: none;">
+                                <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                                    <i class="fa-regular fa-clock" style="color: var(--primary);"></i>
+                                    Available Times for <span id="selectedDateText" style="color: var(--primary);">--</span>
+                                </h4>
+                                <div id="timeSlotsGrid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem;"></div>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 1.5rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                            <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0; display: flex; align-items: center; gap: 0.4rem;">
+                                <i class="fa-solid fa-bell" style="color: var(--accent-green);"></i>
+                                Reminders sent 24h before visit
+                            </p>
+                            <button id="confirmBookingBtn" class="btn btn-primary" disabled onclick="confirmCalendarBooking()" style="padding: 0.5rem 1.25rem; opacity: 0.5; cursor: not-allowed; font-size: 0.9rem;">
+                                Confirm Booking
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Health Journey -->
+            <div class="sticky-sidebar" style="position: sticky; top: 100px; z-index: 10;">
+                <div class="card" style="margin-bottom: 0; padding: 1.25rem;">
+                    <h3 class="card-title" style="margin-bottom: 1rem; font-size: 1.05rem;">
+                        <i class="fa-solid fa-list-check" style="color: var(--primary);"></i>
+                        My Health Journey
+                    </h3>
+
+                    <div style="width: 100%; overflow-x: hidden;">
+                        <table id="patientBookingTable" class="health-journey-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 25%;">ID</th>
+                                    <th style="width: 40%;">Schedule</th>
+                                    <th style="width: 20%;">Status</th>
+                                    <th style="width: 15%;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem 0.5rem;">
+                                        <i class="fa-regular fa-calendar-xmark" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; opacity: 0.5;"></i>
+                                        No active bookings
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.85rem;">
+        <i class="fa-solid fa-lock"></i> Your data is encrypted and secure. MediSync © 2024
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.25rem; font-weight: 700;">Account Settings</h3>
+                <span class="modal-close" onclick="closeModal('settingsModal')">&times;</span>
+            </div>
+            <div style="text-align: center; margin-bottom: 1.5rem;">
+                <img id="previewPic" src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100" class="avatar avatar-md">
+            </div>
+            <form onsubmit="saveProfile(event)">
+                <input type="hidden" id="setLoginMethod" value="username">
+                <div style="display: grid; gap: 1rem;">
+                    <input type="text" id="setName" class="form-input" placeholder="Full Name" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
+                    <input type="text" id="setIcNumber" class="form-input" placeholder="IC Number" readonly style="background-color: #f1f5f9; cursor: not-allowed;">
+                    <input type="email" id="setEmail" class="form-input" placeholder="Email Address">
+                    <input type="text" id="setPhone" class="form-input" placeholder="Phone Number">
+                    <input type="text" id="setPicUrl" class="form-input" placeholder="Profile Picture URL">
+                    <hr style="border: 0; border-top: 1px solid var(--border-color);">
+                    <input type="password" id="setOldPass" class="form-input" placeholder="Current Password">
+                    <input type="password" id="setNewPass" class="form-input" placeholder="New Password">
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('settingsModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Doctor Profiles Modal -->
+    <div id="doctorsModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 900px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.4rem; font-weight: 800; color: var(--secondary);">
+                    <i class="fa-solid fa-user-doctor" style="color: var(--primary);"></i> Doctor Profiles
+                </h3>
+                <span class="modal-close" onclick="closeModal('doctorsModal')">&times;</span>
+            </div>
+
+            <div id="doctorListView">
+                <div id="sectorButtons" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;">
+                    <button class="btn btn-sm btn-primary" onclick="filterDoctors('all', this)">All Specialties</button>
+                </div>
+                <div id="doctorsGrid" class="grid-2" style="gap: 1rem;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Doctor Profile Detail Modal -->
+    <div id="doctorProfileModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.4rem; font-weight: 800; color: var(--secondary);">
+                    <i class="fa-solid fa-user-doctor" style="color: var(--primary);"></i> Doctor Profile
+                </h3>
+                <span class="modal-close" onclick="closeModal('doctorProfileModal')">&times;</span>
+            </div>
+
+            <div id="doctorProfileContent" style="padding: 1rem;">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <div id="prescriptionModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 700px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--secondary);">
+                    <i class="fa-solid fa-file-medical" style="color: var(--primary);"></i> Consultation & Prescription Record
+                </h3>
+                <span class="modal-close" onclick="closeModal('prescriptionModal')">&times;</span>
+            </div>
+
+            <div style="display: grid; gap: 1.5rem;">
+                <div style="background: #f8fafc; padding: 1.25rem; border-radius: 12px; border-left: 4px solid var(--primary);">
+                    <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase;">Consultation Notes</h4>
+                    <p id="modalConsultationNotes" style="color: var(--text-main); line-height: 1.6; font-size: 0.95rem; white-space: pre-wrap;"></p>
+                </div>
+
+                <div style="background: #f0fdf4; padding: 1.25rem; border-radius: 12px; border-left: 4px solid var(--accent-green);">
+                    <h4 style="font-size: 0.9rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase;">Prescription / Medicine</h4>
+                    <p id="modalPrescription" style="color: var(--text-main); line-height: 1.6; font-size: 0.95rem; white-space: pre-wrap;"></p>
+                </div>
+
+                <div style="text-align: right; margin-top: 1rem;">
+                    <span id="modalStaffStatus" class="badge" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;"></span>
+               0.5rem;">
+                    <button class="btn btn-outline" onclick="closeModal('prescriptionModal')">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Triage Modal -->
+    <div id="aiTriageModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 900px; height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; border-bottom: 1px solid var(--border-color);">
+                <div>
+                    <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--secondary); margin: 0;">
+                        <i class="fa-solid fa-robot" style="color: var(--primary);"></i> AI Symptom Checker
+                    </h3>
+                </div>
+                <span class="modal-close" onclick="closeTriageModal()" style="cursor: pointer; font-size: 1.5rem; line-height: 1;">&times;</span>
+            </div>
+
+            <div style="display: flex; flex: 1; gap: 1.5rem; padding: 1.5rem; overflow: hidden;">
+                <!-- Left: 2.5D Body Model -->
+                <div style="flex: 1; background: #f8fafc; border-radius: 12px; padding: 1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; border: 1px solid #e2e8f0;">
+                    <img id="body-image" src="/static/model_front.jpg" alt="Body Model" style="max-height: 300px; object-fit: contain; margin-bottom: 1rem; pointer-events: none;">
+
+                    <!-- Front Hitboxes -->
+                    <div id="hitboxes-front" class="body-hitboxes" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%); width: 200px; height: 300px;">
+                        <div class="body-part" data-part="Head" style="top: 0; left: 35%; width: 30%; height: 15%;"></div>
+                        <div class="body-part" data-part="Chest" style="top: 15%; left: 25%; width: 50%; height: 25%;"></div>
+                        <div class="body-part" data-part="Abdomen" style="top: 40%; left: 30%; width: 40%; height: 20%;"></div>
+                        <div class="body-part" data-part="Arms" style="top: 15%; left: 0; width: 25%; height: 40%;"></div>
+                        <div class="body-part" data-part="Legs" style="top: 60%; left: 25%; width: 50%; height: 40%;"></div>
+                    </div>
+
+                    <!-- Back Hitboxes -->
+                    <div id="hitboxes-back" class="body-hitboxes" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -60%); width: 200px; height: 300px;">
+                        <div class="body-part" data-part="Back" style="top: 15%; left: 25%; width: 50%; height: 45%;"></div>
+                    </div>
+
+                    <button id="flip-btn" class="btn btn-outline btn-sm" style="margin-top: auto; z-index: 2;">Flip to Back</button>
+                    <p id="selected-region-text" style="margin-top: 0.5rem; font-size: 0.9rem; color: #64748b; z-index: 2;"></p>
+                </div>
+
+                <!-- Right: Chat Interface -->
+                <div class="chat-container">
+                    <div id="chat-messages" class="chat-messages">
+                        <div class="message ai-message">
+                            Hi, I am MediSync. Please select your profile, then click on the body map to indicate where you are experiencing symptoms, or type them below.
+                        </div>
+                    </div>
+                    <div style="padding: 1rem; border-top: 1px solid #e2e8f0; display: flex; gap: 0.5rem; background: #f8fafc;">
+                        <input id="user-input" type="text" class="form-input" placeholder="Describe your symptoms (e.g., 'sharp pain in my chest')..." style="flex: 1;">
+                        <button id="send-btn" class="btn btn-primary">
+                            <i class="fa-solid fa-paper-plane"></i> Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+    <script src="/static/triage.js"></script>
+</body>
+</html>
